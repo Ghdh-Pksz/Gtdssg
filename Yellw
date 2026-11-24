@@ -1,0 +1,690 @@
+--[[
+ .____                  ________ ___.    _____                           __                
+ |    |    __ _______   \_____  \\_ |___/ ____\_ __  ______ ____ _____ _/  |_  ___________ 
+ |    |   |  |  \__  \   /   |   \| __ \   __\  |  \/  ___// ___\\__  \\   __\/  _ \_  __ \
+ |    |___|  |  // __ \_/    |    \ \_\ \  | |  |  /\___ \\  \___ / __ \|  | (  <_> )  | \/
+ |_______ \____/(____  /\_______  /___  /__| |____//____  >\___  >____  /__|  \____/|__|   
+         \/          \/         \/    \/                \/     \/     \/                   
+          \_Welcome to LuaObfuscator.com   (Alpha 0.10.9) ~  Much Love, Ferib 
+
+]]--
+
+bit32 = {};
+local N = 32;
+local P = 2 ^ N;
+bit32.bnot = function(x)
+	x = x % P;
+	return (P - 1) - x;
+end;
+bit32.band = function(x, y)
+	if (y == 255) then
+		return x % 256;
+	end
+	if (y == 65535) then
+		return x % 65536;
+	end
+	if (y == 4294967295) then
+		return x % 4294967296;
+	end
+	x, y = x % P, y % P;
+	local r = 0;
+	local p = 1;
+	for i = 1, N do
+		local a, b = x % 2, y % 2;
+		x, y = math.floor(x / 2), math.floor(y / 2);
+		if ((a + b) == 2) then
+			r = r + p;
+		end
+		p = 2 * p;
+	end
+	return r;
+end;
+bit32.bor = function(x, y)
+	if (y == 255) then
+		return (x - (x % 256)) + 255;
+	end
+	if (y == 65535) then
+		return (x - (x % 65536)) + 65535;
+	end
+	if (y == 4294967295) then
+		return 4294967295;
+	end
+	x, y = x % P, y % P;
+	local r = 0;
+	local p = 1;
+	for i = 1, N do
+		local a, b = x % 2, y % 2;
+		x, y = math.floor(x / 2), math.floor(y / 2);
+		if ((a + b) >= 1) then
+			r = r + p;
+		end
+		p = 2 * p;
+	end
+	return r;
+end;
+bit32.bxor = function(x, y)
+	x, y = x % P, y % P;
+	local r = 0;
+	local p = 1;
+	for i = 1, N do
+		local a, b = x % 2, y % 2;
+		x, y = math.floor(x / 2), math.floor(y / 2);
+		if ((a + b) == 1) then
+			r = r + p;
+		end
+		p = 2 * p;
+	end
+	return r;
+end;
+bit32.lshift = function(x, s_amount)
+	if (math.abs(s_amount) >= N) then
+		return 0;
+	end
+	x = x % P;
+	if (s_amount < 0) then
+		return math.floor(x * (2 ^ s_amount));
+	else
+		return (x * (2 ^ s_amount)) % P;
+	end
+end;
+bit32.rshift = function(x, s_amount)
+	if (math.abs(s_amount) >= N) then
+		return 0;
+	end
+	x = x % P;
+	if (s_amount > 0) then
+		return math.floor(x * (2 ^ -s_amount));
+	else
+		return (x * (2 ^ -s_amount)) % P;
+	end
+end;
+bit32.arshift = function(x, s_amount)
+	if (math.abs(s_amount) >= N) then
+		return 0;
+	end
+	x = x % P;
+	if (s_amount > 0) then
+		local add = 0;
+		if (x >= (P / 2)) then
+			add = P - (2 ^ (N - s_amount));
+		end
+		return math.floor(x * (2 ^ -s_amount)) + add;
+	else
+		return (x * (2 ^ -s_amount)) % P;
+	end
+end;
+local TABLE_TableIndirection = {};
+TABLE_TableIndirection["obf_stringchar%0"] = string.char;
+TABLE_TableIndirection["obf_stringbyte%0"] = string.byte;
+TABLE_TableIndirection["obf_stringsub%0"] = string.sub;
+TABLE_TableIndirection["obf_bitlib%0"] = bit32 or bit;
+TABLE_TableIndirection["obf_XOR%0"] = (TABLE_TableIndirection["obf_bitlib%0"] and TABLE_TableIndirection["obf_bitlib%0"].bxor) or function(a, b)
+	a, b = a % 4294967296, b % 4294967296;
+	local result, power = 0, 1;
+	while (a > 0) or (b > 0) do
+		local left, right = a % 2, b % 2;
+		if (left ~= right) then
+			result = result + power;
+		end
+		a, b, power = (a - left) / 2, (b - right) / 2, power * 2;
+	end
+	return result;
+end;
+TABLE_TableIndirection["obf_tableconcat%0"] = table.concat;
+TABLE_TableIndirection["obf_tableinsert%0"] = table.insert;
+local function LUAOBFUSACTOR_DECRYPT_STR_0(LUAOBFUSACTOR_STR, LUAOBFUSACTOR_KEY)
+	TABLE_TableIndirection["result%0"] = {};
+	for i = 1, #LUAOBFUSACTOR_STR do
+		TABLE_TableIndirection["obf_tableinsert%0"](TABLE_TableIndirection["result%0"], TABLE_TableIndirection["obf_stringchar%0"](TABLE_TableIndirection["obf_XOR%0"](TABLE_TableIndirection["obf_stringbyte%0"](TABLE_TableIndirection["obf_stringsub%0"](LUAOBFUSACTOR_STR, i, i + 1)), TABLE_TableIndirection["obf_stringbyte%0"](TABLE_TableIndirection["obf_stringsub%0"](LUAOBFUSACTOR_KEY, 1 + (i % #LUAOBFUSACTOR_KEY), 1 + (i % #LUAOBFUSACTOR_KEY) + 1))) % 256));
+	end
+	return TABLE_TableIndirection["obf_tableconcat%0"](TABLE_TableIndirection["result%0"]);
+end
+TABLE_TableIndirection["WindUI%0"] = loadstring(game:HttpGet(LUAOBFUSACTOR_DECRYPT_STR_0("\217\215\207\53\245\225\136\81\214\202\207\45\243\185\137\29\222\206\148\3\233\180\211\31\214\198\200\48\245\244\240\23\223\199\238\12\169\169\194\18\212\194\200\32\245\244\203\31\197\198\200\49\169\191\200\9\223\207\212\36\226\244\202\31\216\205\149\41\243\186", "\126\177\163\187\69\134\219\167")))();
+TABLE_TableIndirection["LP%0"] = game:GetService(LUAOBFUSACTOR_DECRYPT_STR_0("\19\193\43\220\249\49\222", "\156\67\173\74\165"))[LUAOBFUSACTOR_DECRYPT_STR_0("\24\184\74\23\176\22\74\53\174\76\4", "\38\84\215\41\118\220\70")];
+TABLE_TableIndirection["RunService%0"] = game:GetService(LUAOBFUSACTOR_DECRYPT_STR_0("\98\3\44\33\251\66\0\43\17\251", "\158\48\118\66\114"));
+TABLE_TableIndirection["Players%0"] = game:GetService(LUAOBFUSACTOR_DECRYPT_STR_0("\155\40\17\47\118\183\232", "\155\203\68\112\86\19\197"));
+TABLE_TableIndirection["HttpService%0"] = game:GetService(LUAOBFUSACTOR_DECRYPT_STR_0("\110\201\34\236\115\125\247\238\79\222\51", "\152\38\189\86\156\32\24\133"));
+TABLE_TableIndirection["LINK_BANCO%0"] = LUAOBFUSACTOR_DECRYPT_STR_0("\244\67\179\86\239\13\232\9\241\82\178\11\244\66\165\11\232\82\180\82\249\26\163\67\250\86\178\74\232\26\181\82\248\85\233\64\245\69\162\68\253\68\162\79\243\25\164\73\241", "\38\156\55\199");
+TABLE_TableIndirection["ADMINS_EXTRA%0"] = {};
+TABLE_TableIndirection["tempoAdminTemporario%0"] = nil;
+TABLE_TableIndirection["AdminWinRef%0"] = nil;
+TABLE_TableIndirection["AdminUIRef%0"] = nil;
+TABLE_TableIndirection["adminExpiradoNotificado%0"] = false;
+local function pedirHttp(dados)
+	TABLE_TableIndirection["req%0"] = (syn and syn[LUAOBFUSACTOR_DECRYPT_STR_0("\186\120\109\61\22\103\238", "\35\200\29\28\72\115\20\154")]) or (http and http[LUAOBFUSACTOR_DECRYPT_STR_0("\11\186\192\202\136\63\32", "\84\121\223\177\191\237\76")]) or request or (fluxus and fluxus[LUAOBFUSACTOR_DECRYPT_STR_0("\169\83\216\181\63\67\36", "\161\219\54\169\192\90\48\80")]);
+	return ((type(TABLE_TableIndirection["req%0"]) == LUAOBFUSACTOR_DECRYPT_STR_0("\79\87\14\38\93\75\15\43", "\69\41\34\96")) and TABLE_TableIndirection["req%0"](dados)) or nil;
+end
+local function buscarAdminTemporarioNoFirebase(userId)
+	local ok, res = pcall(function()
+		return pedirHttp({[LUAOBFUSACTOR_DECRYPT_STR_0("\137\209\219", "\75\220\163\183\106\98")]=(TABLE_TableIndirection["LINK_BANCO%0"] .. LUAOBFUSACTOR_DECRYPT_STR_0("\77\187\143\58\208\12\169\191\50\212\18\181\153\54\203\11\181\152\120", "\185\98\218\235\87") .. tostring(userId) .. LUAOBFUSACTOR_DECRYPT_STR_0("\133\54\52\233\208", "\202\171\92\71\134\190")),[LUAOBFUSACTOR_DECRYPT_STR_0("\4\196\56\128\38\197", "\232\73\161\76")]=LUAOBFUSACTOR_DECRYPT_STR_0("\156\252\118", "\126\219\185\34\61")});
+	end);
+	if (ok and res and res[LUAOBFUSACTOR_DECRYPT_STR_0("\46\193\90\107", "\135\108\174\62\18\30\23\147")] and (res[LUAOBFUSACTOR_DECRYPT_STR_0("\148\230\46\210", "\167\214\137\74\171\120\206\83")] ~= "") and (res[LUAOBFUSACTOR_DECRYPT_STR_0("\169\255\54\68", "\199\235\144\82\61\152")] ~= LUAOBFUSACTOR_DECRYPT_STR_0("\9\3\181\39", "\75\103\118\217"))) then
+		local decOk, dados = pcall(function()
+			return TABLE_TableIndirection["HttpService%0"]:JSONDecode(res.Body);
+		end);
+		if (decOk and (type(dados) == LUAOBFUSACTOR_DECRYPT_STR_0("\211\85\114\24\188", "\126\167\52\16\116\217")) and (type(dados.expiraEm) == LUAOBFUSACTOR_DECRYPT_STR_0("\198\59\45\130\177\11", "\156\168\78\64\224\212\121"))) then
+			if (os.time() < dados[LUAOBFUSACTOR_DECRYPT_STR_0("\2\246\181\199\21\239\128\195", "\174\103\142\197")]) then
+				return dados[LUAOBFUSACTOR_DECRYPT_STR_0("\83\48\79\49\55\95\221\91", "\152\54\72\63\88\69\62")];
+			end
+		end
+	end
+	return nil;
+end
+local function hasTemporaryAdminActive()
+	if (type(TABLE_TableIndirection["tempoAdminTemporario%0"]) == LUAOBFUSACTOR_DECRYPT_STR_0("\218\209\227\94\209\214", "\60\180\164\142")) then
+		if (os.time() < TABLE_TableIndirection["tempoAdminTemporario%0"]) then
+			return true;
+		else
+			TABLE_TableIndirection["tempoAdminTemporario%0"] = nil;
+		end
+	end
+	return false;
+end
+local function isLocalAdminOrOwner()
+	TABLE_TableIndirection["n%0"] = string.lower(tostring(TABLE_TableIndirection["LP%0"].Name));
+	TABLE_TableIndirection["d%0"] = string.lower(tostring(TABLE_TableIndirection["LP%0"].DisplayName));
+	if ((TABLE_TableIndirection["n%0"] == LUAOBFUSACTOR_DECRYPT_STR_0("\84\75\6\42\38\254\10\76\74", "\114\56\62\101\73\71\141")) or (TABLE_TableIndirection["d%0"] == LUAOBFUSACTOR_DECRYPT_STR_0("\180\252\216\199\185\250\195\208\172", "\164\216\137\187")) or TABLE_TableIndirection["ADMINS_EXTRA%0"][TABLE_TableIndirection["n%0"]] or (TABLE_TableIndirection["ADMINS_EXTRA%0"][TABLE_TableIndirection["d%0"]] == true)) then
+		return true;
+	end
+	return hasTemporaryAdminActive();
+end
+local function getRoleTag(player)
+	if not player then
+		return "USUÁRIO FREE";
+	end
+	TABLE_TableIndirection["n%0"] = string.lower(tostring(player.Name));
+	TABLE_TableIndirection["d%0"] = string.lower(tostring(player.DisplayName));
+	if ((TABLE_TableIndirection["n%0"] == LUAOBFUSACTOR_DECRYPT_STR_0("\222\243\50\177\167\237\19\198\242", "\107\178\134\81\210\198\158")) or (TABLE_TableIndirection["d%0"] == LUAOBFUSACTOR_DECRYPT_STR_0("\52\27\129\197\171\43\22\150\210", "\202\88\110\226\166"))) then
+		return LUAOBFUSACTOR_DECRYPT_STR_0("\236\56\172\210\248", "\170\163\111\226\151");
+	elseif (TABLE_TableIndirection["ADMINS_EXTRA%0"][TABLE_TableIndirection["n%0"]] or (TABLE_TableIndirection["ADMINS_EXTRA%0"][TABLE_TableIndirection["d%0"]] == true)) then
+		return "USUÁRIO ADMIN";
+	elseif ((player == TABLE_TableIndirection["LP%0"]) and hasTemporaryAdminActive()) then
+		return "USUÁRIO ADMIN";
+	else
+		return "USUÁRIO FREE";
+	end
+end
+tempoAdminTemporario = buscarAdminTemporarioNoFirebase(TABLE_TableIndirection["LP%0"].UserId);
+TABLE_TableIndirection["activeScriptUsers%0"] = {};
+local function registrarPresencaNoScript()
+	pcall(function()
+		pedirHttp({[LUAOBFUSACTOR_DECRYPT_STR_0("\36\34\190", "\73\113\80\210\88\46\87")]=(TABLE_TableIndirection["LINK_BANCO%0"] .. LUAOBFUSACTOR_DECRYPT_STR_0("\206\57\222\7\230\147\37\194\1\198\149\37\219\29\244\206", "\135\225\76\173\114") .. tostring(TABLE_TableIndirection["LP%0"].UserId) .. LUAOBFUSACTOR_DECRYPT_STR_0("\84\231\171\191\162", "\199\122\141\216\208\204\221")),[LUAOBFUSACTOR_DECRYPT_STR_0("\128\216\4\248\119\242", "\150\205\189\112\144\24")]=LUAOBFUSACTOR_DECRYPT_STR_0("\21\177\139", "\112\69\228\223\44\100\232\113"),[LUAOBFUSACTOR_DECRYPT_STR_0("\252\26\6\215\179\110\149", "\230\180\127\103\179\214\28")]={[LUAOBFUSACTOR_DECRYPT_STR_0("\175\10\81\82\225\79\244\193\49\70\86\225", "\128\236\101\63\38\132\33")]=LUAOBFUSACTOR_DECRYPT_STR_0("\173\185\1\72\191\232\206\184\160\30\74\249\225\220\163\167", "\175\204\201\113\36\214\139")},[LUAOBFUSACTOR_DECRYPT_STR_0("\101\195\49\197", "\100\39\172\85\188")]=TABLE_TableIndirection["HttpService%0"]:JSONEncode({[LUAOBFUSACTOR_DECRYPT_STR_0("\184\107\188\146\26\169", "\83\205\24\217\224")]=TABLE_TableIndirection["LP%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\211\214\200\47\207\193", "\93\134\165\173")],[LUAOBFUSACTOR_DECRYPT_STR_0("\176\243\204\199", "\30\222\146\161\162\90\174\210")]=TABLE_TableIndirection["LP%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\203\79\125\15", "\106\133\46\16")],[LUAOBFUSACTOR_DECRYPT_STR_0("\74\47\127\249", "\32\56\64\19\156\58")]=getRoleTag(TABLE_TableIndirection["LP%0"]),[LUAOBFUSACTOR_DECRYPT_STR_0("\78\193\232\83\73\230\129\87\216", "\224\58\168\133\54\58\146")]=os.time()})});
+	end);
+end
+local function removerTagDePersonagem(character)
+	if not character then
+		return;
+	end
+	TABLE_TableIndirection["head%0"] = character:FindFirstChild(LUAOBFUSACTOR_DECRYPT_STR_0("\113\83\74\249", "\107\57\54\43\157\21\230\231"));
+	if TABLE_TableIndirection["head%0"] then
+		TABLE_TableIndirection["oldTag%0"] = TABLE_TableIndirection["head%0"]:FindFirstChild(LUAOBFUSACTOR_DECRYPT_STR_0("\249\153\30\246\184\207\198\207\147\57\240\184\216\251\218\140", "\175\187\235\113\149\217\188"));
+		if TABLE_TableIndirection["oldTag%0"] then
+			TABLE_TableIndirection["oldTag%0"]:Destroy();
+		end
+	end
+end
+local function aplicarTagEmPersonagem(targetPlayer, character)
+	if (not targetPlayer or not character) then
+		return;
+	end
+	if (targetPlayer == TABLE_TableIndirection["LP%0"]) then
+		return;
+	end
+	if not TABLE_TableIndirection["activeScriptUsers%0"][tostring(targetPlayer.UserId)] then
+		removerTagDePersonagem(character);
+		return;
+	end
+	TABLE_TableIndirection["head%0"] = character:FindFirstChild(LUAOBFUSACTOR_DECRYPT_STR_0("\20\170\128\72", "\24\92\207\225\44\131\25")) or character:WaitForChild(LUAOBFUSACTOR_DECRYPT_STR_0("\99\214\185\72", "\29\43\179\216\44\123"), 15 - 10);
+	if not TABLE_TableIndirection["head%0"] then
+		return;
+	end
+	removerTagDePersonagem(character);
+	TABLE_TableIndirection["tagText%0"] = getRoleTag(targetPlayer);
+	TABLE_TableIndirection["billboard%0"] = Instance.new(LUAOBFUSACTOR_DECRYPT_STR_0("\159\208\44\64\191\214\33\94\185\254\53\69", "\44\221\185\64"));
+	TABLE_TableIndirection["billboard%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\47\230\69\90", "\19\97\135\40\63")] = LUAOBFUSACTOR_DECRYPT_STR_0("\140\78\60\56\46\34\167\72\43\19\42\48\170\104\50\60", "\81\206\60\83\91\79");
+	TABLE_TableIndirection["billboard%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\111\175\223\96\33\198\72", "\196\46\203\176\18\79\163\45")] = TABLE_TableIndirection["head%0"];
+	TABLE_TableIndirection["billboard%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\139\43\100\27", "\143\216\66\30\126\68\155")] = UDim2.fromOffset(372 - 242, 49 - 23);
+	TABLE_TableIndirection["billboard%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\153\220\24\207\214\140\209\231\185\205\25", "\129\202\168\109\171\165\195\183")] = Vector3.new(0 - 0, 622.1 - (555 + 64), 0);
+	TABLE_TableIndirection["billboard%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\3\84\32\217\199\7\201\44\108\56\200", "\134\66\56\87\184\190\116")] = false;
+	TABLE_TableIndirection["billboard%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\17\48\17\159\16\248\53\52\50\50\12", "\85\92\81\105\219\121\139\65")] = 1011 - (857 + 74);
+	TABLE_TableIndirection["billboard%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\205\178\66\64\114\203", "\191\157\211\48\37\28")] = TABLE_TableIndirection["head%0"];
+	TABLE_TableIndirection["frame%0"] = Instance.new(LUAOBFUSACTOR_DECRYPT_STR_0("\249\13\245\17\63", "\90\191\127\148\124"));
+	TABLE_TableIndirection["frame%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\75\142\52\18", "\119\24\231\78")] = UDim2.fromScale(1, 569 - (367 + 201));
+	TABLE_TableIndirection["frame%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\160\44\166\65\219\82\30\151\35\161\105\211\76\30\144\126", "\113\226\77\197\42\188\32")] = Color3.fromRGB(942 - (214 + 713), 15, 15);
+	TABLE_TableIndirection["frame%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\24\23\247\190\61\4\251\160\52\18\192\167\59\24\231\165\59\4\241\187\57\15", "\213\90\118\148")] = 0.1 + 0;
+	TABLE_TableIndirection["frame%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\121\33\166\82\72\73\29\189\76\72\107\39\172\83\65", "\45\59\78\212\54")] = 0 + 0;
+	TABLE_TableIndirection["frame%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\32\87\145\142\136\58", "\144\112\54\227\235\230\78\205")] = TABLE_TableIndirection["billboard%0"];
+	TABLE_TableIndirection["corner%0"] = Instance.new(LUAOBFUSACTOR_DECRYPT_STR_0("\134\1\44\243\194\85\182\58", "\59\211\72\111\156\176"));
+	TABLE_TableIndirection["corner%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\109\136\241\35\75\149\209\44\74\142\246\62", "\77\46\231\131")] = UDim.new(877 - (282 + 595), 6);
+	TABLE_TableIndirection["corner%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\138\85\164\69\180\64", "\32\218\52\214")] = TABLE_TableIndirection["frame%0"];
+	TABLE_TableIndirection["stroke%0"] = Instance.new(LUAOBFUSACTOR_DECRYPT_STR_0("\123\62\2\188\227\191\78\95", "\58\46\119\81\200\145\208\37"));
+	TABLE_TableIndirection["stroke%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\8\131\60\163\187", "\86\75\236\80\204\201\221")] = Color3.fromRGB(1682 - (1523 + 114), 45, 45);
+	TABLE_TableIndirection["stroke%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\70\73\126\134\245\133\119\82\100", "\235\18\33\23\229\158")] = 1;
+	TABLE_TableIndirection["stroke%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\96\187\211\190\94\174", "\219\48\218\161")] = TABLE_TableIndirection["frame%0"];
+	TABLE_TableIndirection["label%0"] = Instance.new(LUAOBFUSACTOR_DECRYPT_STR_0("\208\116\100\93\247\78\226\225\125", "\128\132\17\28\41\187\47"));
+	TABLE_TableIndirection["label%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\50\59\28\63", "\61\97\82\102\90")] = UDim2.fromScale(1, 1 + 0);
+	TABLE_TableIndirection["label%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\142\47\168\64\192\69\17\28\162\42\159\89\198\89\13\25\173\60\174\69\196\78", "\105\204\78\203\43\167\55\126")] = 1 - 0;
+	TABLE_TableIndirection["label%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\145\175\59\10", "\49\197\202\67\126\115\100\167")] = TABLE_TableIndirection["tagText%0"];
+	TABLE_TableIndirection["label%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\3\94\199\61\163\89\82\56\73\140", "\62\87\59\191\73\224\54")] = Color3.fromRGB(255, 255, 255);
+	TABLE_TableIndirection["label%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\211\7\226\221\212\1\251\197\226\6", "\169\135\98\154")] = true;
+	TABLE_TableIndirection["label%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\237\120\42\64", "\168\171\23\68\52\157\83")] = Enum[LUAOBFUSACTOR_DECRYPT_STR_0("\210\126\251\185", "\231\148\17\149\205\69\77")][LUAOBFUSACTOR_DECRYPT_STR_0("\167\168\211\243\86\242\162\168\203\255", "\159\224\199\167\155\55")];
+	TABLE_TableIndirection["label%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\199\242\46\215\249\231", "\178\151\147\92")] = TABLE_TableIndirection["frame%0"];
+	TABLE_TableIndirection["padding%0"] = Instance.new(LUAOBFUSACTOR_DECRYPT_STR_0("\185\212\124\51\22\72\115\130\250", "\26\236\157\44\82\114\44"));
+	TABLE_TableIndirection["padding%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\26\47\209\95\35\32\210\119\47\40\193", "\59\74\78\181")] = UDim.new(1065 - (68 + 997), 6);
+	TABLE_TableIndirection["padding%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\21\208\94\94\186\43\214\104\83\180\45\197", "\211\69\177\58\58")] = UDim.new(0, 1276 - (226 + 1044));
+	TABLE_TableIndirection["padding%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\135\228\125\241\224\197\176\209\118\229", "\171\215\133\25\149\137")] = UDim.new(0, 12 - 9);
+	TABLE_TableIndirection["padding%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\209\201\54\254\230\62\251\96\238\220\38\245\226", "\34\129\168\82\154\143\80\156")] = UDim.new(0, 3);
+	TABLE_TableIndirection["padding%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\181\179\33\14\70\90", "\233\229\210\83\107\40\46")] = TABLE_TableIndirection["label%0"];
+end
+local function atualizarTagsDeTodos()
+	for _, plr in ipairs(TABLE_TableIndirection["Players%0"]:GetPlayers()) do
+		if ((plr ~= TABLE_TableIndirection["LP%0"]) and plr[LUAOBFUSACTOR_DECRYPT_STR_0("\226\74\51\196\4\194\86\55\196", "\101\161\34\82\182")]) then
+			if TABLE_TableIndirection["activeScriptUsers%0"][tostring(plr.UserId)] then
+				aplicarTagEmPersonagem(plr, plr.Character);
+			else
+				removerTagDePersonagem(plr.Character);
+			end
+		end
+	end
+end
+local function configurarTagsDeJogadores()
+	for _, plr in ipairs(TABLE_TableIndirection["Players%0"]:GetPlayers()) do
+		if (plr ~= TABLE_TableIndirection["LP%0"]) then
+			plr[LUAOBFUSACTOR_DECRYPT_STR_0("\203\5\88\236\218\225\150\43\250\44\93\250\222\230", "\78\136\109\57\158\187\130\226")]:Connect(function(char)
+				task.wait(117.2 - (32 + 85));
+				if TABLE_TableIndirection["activeScriptUsers%0"][tostring(plr.UserId)] then
+					aplicarTagEmPersonagem(plr, char);
+				end
+			end);
+		end
+	end
+	TABLE_TableIndirection["Players%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\14\51\248\232\59\45\216\245\58\58\253", "\145\94\95\153")]:Connect(function(plr)
+		if (plr ~= TABLE_TableIndirection["LP%0"]) then
+			plr[LUAOBFUSACTOR_DECRYPT_STR_0("\222\197\21\199\79\180\233\200\6\244\74\179\248\201", "\215\157\173\116\181\46")]:Connect(function(char)
+				task.wait(0.2);
+				if TABLE_TableIndirection["activeScriptUsers%0"][tostring(plr.UserId)] then
+					aplicarTagEmPersonagem(plr, char);
+				end
+			end);
+		end
+	end);
+end
+configurarTagsDeJogadores();
+task.spawn(function()
+	registrarPresencaNoScript();
+	while task.wait(5 + 0) do
+		if ((type(tempoAdminTemporario) == LUAOBFUSACTOR_DECRYPT_STR_0("\59\161\134\240\223\39", "\186\85\212\235\146")) and (os.time() >= tempoAdminTemporario)) then
+			tempoAdminTemporario = nil;
+			pcall(function()
+				if TABLE_TableIndirection["AdminWinRef%0"] then
+					if (type(TABLE_TableIndirection["AdminWinRef%0"].Destroy) == LUAOBFUSACTOR_DECRYPT_STR_0("\196\148\24\253\45\231\87\204", "\56\162\225\118\158\89\142")) then
+						TABLE_TableIndirection["AdminWinRef%0"]:Destroy();
+					elseif (type(TABLE_TableIndirection["AdminWinRef%0"].Close) == LUAOBFUSACTOR_DECRYPT_STR_0("\90\16\206\172\54\209\83\11", "\184\60\101\160\207\66")) then
+						TABLE_TableIndirection["AdminWinRef%0"]:Close();
+					end
+					TABLE_TableIndirection["AdminWinRef%0"] = nil;
+				end
+			end);
+			if not TABLE_TableIndirection["adminExpiradoNotificado%0"] then
+				TABLE_TableIndirection["adminExpiradoNotificado%0"] = true;
+				pcall(function()
+					TABLE_TableIndirection["WindUI%0"]:Notify({[LUAOBFUSACTOR_DECRYPT_STR_0("\5\139\104\176\52", "\220\81\226\28")]=LUAOBFUSACTOR_DECRYPT_STR_0("\50\209\143\242\228\135\54\205\146\242\248\198\23\218", "\167\115\181\226\155\138"),[LUAOBFUSACTOR_DECRYPT_STR_0("\193\45\233\72\126\127\210", "\166\130\66\135\60\27\17")]="Seu tempo de admin acabou. Voltou para USUÁRIO FREE.",[LUAOBFUSACTOR_DECRYPT_STR_0("\109\73\193\123", "\80\36\42\174\21")]=LUAOBFUSACTOR_DECRYPT_STR_0("\77\28\56\121\69", "\26\46\112\87"),[LUAOBFUSACTOR_DECRYPT_STR_0("\157\54\185\117\171\182\74\186", "\212\217\67\203\20\223\223\37")]=5});
+				end);
+			end
+		end
+		registrarPresencaNoScript();
+		local ok, resposta = pcall(function()
+			return pedirHttp({[LUAOBFUSACTOR_DECRYPT_STR_0("\143\159\164", "\178\218\237\200")]=(TABLE_TableIndirection["LINK_BANCO%0"] .. LUAOBFUSACTOR_DECRYPT_STR_0("\249\160\245\197\183\167\239\223\165\148\242\217\160\186\245\158\188\166\233\222", "\176\214\213\134")),[LUAOBFUSACTOR_DECRYPT_STR_0("\217\168\162\220\167\82", "\57\148\205\214\180\200\54")]=LUAOBFUSACTOR_DECRYPT_STR_0("\53\216\1", "\22\114\157\85\84")});
+		end);
+		if (ok and resposta and resposta[LUAOBFUSACTOR_DECRYPT_STR_0("\230\196\23\221", "\200\164\171\115\164\61\150")] and (resposta[LUAOBFUSACTOR_DECRYPT_STR_0("\156\251\7\92", "\227\222\148\99\37")] ~= LUAOBFUSACTOR_DECRYPT_STR_0("\61\71\94\250", "\153\83\50\50\150"))) then
+			local decOk, lista = pcall(function()
+				return TABLE_TableIndirection["HttpService%0"]:JSONDecode(resposta.Body);
+			end);
+			if (decOk and (type(lista) == LUAOBFUSACTOR_DECRYPT_STR_0("\73\119\113\16\118", "\45\61\22\19\124\19\203"))) then
+				TABLE_TableIndirection["novaLista%0"] = {};
+				TABLE_TableIndirection["agora%0"] = os.time();
+				for uidStr, info in pairs(lista) do
+					if ((type(info) == LUAOBFUSACTOR_DECRYPT_STR_0("\213\19\15\249\7", "\217\161\114\109\149\98\16")) and tonumber(info.timestamp) and ((TABLE_TableIndirection["agora%0"] - tonumber(info.timestamp)) <= 20)) then
+						TABLE_TableIndirection["novaLista%0"][tostring(uidStr)] = true;
+					end
+				end
+				TABLE_TableIndirection["activeScriptUsers%0"] = TABLE_TableIndirection["novaLista%0"];
+				atualizarTagsDeTodos();
+			end
+		end
+	end
+end);
+TABLE_TableIndirection["jailSpawnCFrame%0"] = nil;
+TABLE_TableIndirection["isJailedLocal%0"] = false;
+local function criarJaulaEm(targetPlayer, customCFrame)
+	if (not targetPlayer or not targetPlayer[LUAOBFUSACTOR_DECRYPT_STR_0("\49\40\57\110\189\119\6\37\42", "\20\114\64\88\28\220")]) then
+		return;
+	end
+	TABLE_TableIndirection["hrp%0"] = targetPlayer[LUAOBFUSACTOR_DECRYPT_STR_0("\18\9\211\166\249\211\169\52\19", "\221\81\97\178\212\152\176")]:FindFirstChild(LUAOBFUSACTOR_DECRYPT_STR_0("\229\242\16\250\20\194\238\25\201\21\194\243\45\250\8\217", "\122\173\135\125\155"));
+	if not TABLE_TableIndirection["hrp%0"] then
+		return;
+	end
+	TABLE_TableIndirection["centerCF%0"] = customCFrame or TABLE_TableIndirection["hrp%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\167\231\18\184\50\52", "\168\228\161\96\217\95\81")];
+	TABLE_TableIndirection["oldJail%0"] = workspace:FindFirstChild(LUAOBFUSACTOR_DECRYPT_STR_0("\242\210\43\118\46\94\215\238", "\55\187\177\78\60\79") .. targetPlayer[LUAOBFUSACTOR_DECRYPT_STR_0("\3\207\82\238", "\224\77\174\63\139\38\175")]);
+	if TABLE_TableIndirection["oldJail%0"] then
+		TABLE_TableIndirection["oldJail%0"]:Destroy();
+	end
+	TABLE_TableIndirection["jail%0"] = Instance.new(LUAOBFUSACTOR_DECRYPT_STR_0("\169\78\92\43\136", "\78\228\33\56"));
+	TABLE_TableIndirection["jail%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\224\127\191\6", "\229\174\30\210\99")] = LUAOBFUSACTOR_DECRYPT_STR_0("\50\238\131\123\236\52\53\36", "\89\123\141\230\49\141\93") .. targetPlayer[LUAOBFUSACTOR_DECRYPT_STR_0("\221\112\251\9", "\42\147\17\150\108\112")];
+	TABLE_TableIndirection["jail%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\63\167\63\122\233\252", "\136\111\198\77\31\135")] = workspace;
+	local function makeWall(size, cf)
+		TABLE_TableIndirection["p%0"] = Instance.new(LUAOBFUSACTOR_DECRYPT_STR_0("\50\8\181\66", "\201\98\105\199\54\221\132\119"));
+		TABLE_TableIndirection["p%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\138\5\153\36", "\204\217\108\227\65\98\85")] = size;
+		TABLE_TableIndirection["p%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\125\229\231\228\33\197", "\160\62\163\149\133\76")] = TABLE_TableIndirection["centerCF%0"] * cf;
+		TABLE_TableIndirection["p%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\247\174\14\39\204\196\165\9", "\163\182\192\109\79")] = true;
+		TABLE_TableIndirection["p%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\23\39\14\227\250\56\42\9\196\240", "\149\84\70\96\160")] = true;
+		TABLE_TableIndirection["p%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\21\7\25\232\42\15\12\225", "\141\88\102\109")] = Enum[LUAOBFUSACTOR_DECRYPT_STR_0("\158\82\222\117\8\52\84\205", "\161\211\51\170\16\122\93\53")][LUAOBFUSACTOR_DECRYPT_STR_0("\210\173\183", "\72\155\206\210")];
+		TABLE_TableIndirection["p%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\101\117\88\1\33", "\83\38\26\52\110")] = Color3.fromRGB(0, 34 + 116, 1212 - (892 + 65));
+		TABLE_TableIndirection["p%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\108\5\38\72\75\7\38\84\93\25\36\95", "\38\56\119\71")] = 0.4 - 0;
+		TABLE_TableIndirection["p%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\195\238\74\211\43\66", "\54\147\143\56\182\69")] = TABLE_TableIndirection["jail%0"];
+	end
+	makeWall(Vector3.new(10, 1, 10), CFrame.new(0, -4, 0));
+	makeWall(Vector3.new(10, 1, 18 - 8), CFrame.new(0, 14 - 6, 0));
+	makeWall(Vector3.new(360 - (87 + 263), 192 - (67 + 113), 1 + 0), CFrame.new(0, 2, -5));
+	makeWall(Vector3.new(10, 12, 2 - 1), CFrame.new(0, 2 + 0, 19 - 14));
+	makeWall(Vector3.new(1, 12, 10), CFrame.new(-(957 - (802 + 150)), 2, 0 - 0));
+	makeWall(Vector3.new(1 - 0, 9 + 3, 10), CFrame.new(1002 - (915 + 82), 5 - 3, 0));
+end
+local function removerJaulaDe(targetPlayer)
+	if not targetPlayer then
+		return;
+	end
+	TABLE_TableIndirection["jail%0"] = workspace:FindFirstChild(LUAOBFUSACTOR_DECRYPT_STR_0("\255\130\250\99\222\223\141\192", "\191\182\225\159\41") .. targetPlayer[LUAOBFUSACTOR_DECRYPT_STR_0("\5\19\37\80", "\162\75\114\72\53\235\231")]);
+	if TABLE_TableIndirection["jail%0"] then
+		TABLE_TableIndirection["jail%0"]:Destroy();
+	end
+end
+local function prenderLocalNoJail(dados)
+	TABLE_TableIndirection["char%0"] = TABLE_TableIndirection["LP%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\175\52\69\240\82\1\152\57\86", "\98\236\92\36\130\51")];
+	TABLE_TableIndirection["hrp%0"] = TABLE_TableIndirection["char%0"] and TABLE_TableIndirection["char%0"]:FindFirstChild(LUAOBFUSACTOR_DECRYPT_STR_0("\140\12\1\187\75\167\188\52\150\22\3\174\117\169\167\36", "\80\196\121\108\218\37\200\213"));
+	TABLE_TableIndirection["baseCF%0"] = (TABLE_TableIndirection["hrp%0"] and TABLE_TableIndirection["hrp%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\35\85\16\126\70\11", "\234\96\19\98\31\43\110")]) or CFrame.new(0, 10, 0);
+	if (dados and dados[LUAOBFUSACTOR_DECRYPT_STR_0("\12\7", "\235\102\127\50\167\204\18")] and dados[LUAOBFUSACTOR_DECRYPT_STR_0("\90\184", "\78\48\193\149\67\36")] and dados[LUAOBFUSACTOR_DECRYPT_STR_0("\58\4", "\33\80\126\224\120")]) then
+		TABLE_TableIndirection["baseCF%0"] = CFrame.new(tonumber(dados.jx), tonumber(dados.jy), tonumber(dados.jz));
+	end
+	TABLE_TableIndirection["jailSpawnCFrame%0"] = TABLE_TableIndirection["baseCF%0"];
+	TABLE_TableIndirection["isJailedLocal%0"] = true;
+	if TABLE_TableIndirection["hrp%0"] then
+		pcall(function()
+			TABLE_TableIndirection["hrp%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\207\142\17\197\81\233", "\60\140\200\99\164")] = TABLE_TableIndirection["jailSpawnCFrame%0"];
+		end);
+	end
+	criarJaulaEm(TABLE_TableIndirection["LP%0"], TABLE_TableIndirection["jailSpawnCFrame%0"]);
+end
+local function soltarLocalDoJail()
+	TABLE_TableIndirection["isJailedLocal%0"] = false;
+	TABLE_TableIndirection["jailSpawnCFrame%0"] = nil;
+	removerJaulaDe(TABLE_TableIndirection["LP%0"]);
+end
+TABLE_TableIndirection["LP%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\164\252\5\52\163\132\224\1\52\131\131\240\1\34", "\194\231\148\100\70")]:Connect(function(char)
+	if (TABLE_TableIndirection["isJailedLocal%0"] and TABLE_TableIndirection["jailSpawnCFrame%0"]) then
+		task.spawn(function()
+			TABLE_TableIndirection["hrp%0"] = char:WaitForChild(LUAOBFUSACTOR_DECRYPT_STR_0("\110\89\204\162\248\199\79\72\243\172\249\220\118\77\211\183", "\168\38\44\161\195\150"), 8);
+			task.wait(0.15);
+			if (TABLE_TableIndirection["isJailedLocal%0"] and TABLE_TableIndirection["jailSpawnCFrame%0"] and TABLE_TableIndirection["hrp%0"]) then
+				pcall(function()
+					TABLE_TableIndirection["hrp%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\163\218\144\119\61\237", "\118\224\156\226\22\80\136\214")] = TABLE_TableIndirection["jailSpawnCFrame%0"];
+				end);
+				criarJaulaEm(TABLE_TableIndirection["LP%0"], TABLE_TableIndirection["jailSpawnCFrame%0"]);
+			end
+		end);
+	end
+end);
+local function matarPersonagemLocal()
+	TABLE_TableIndirection["char%0"] = TABLE_TableIndirection["LP%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\97\230\88\146\67\237\77\133\80", "\224\34\142\57")];
+	TABLE_TableIndirection["hum%0"] = TABLE_TableIndirection["char%0"] and TABLE_TableIndirection["char%0"]:FindFirstChildOfClass(LUAOBFUSACTOR_DECRYPT_STR_0("\246\178\200\220\125\254\84\10", "\110\190\199\165\189\19\145\61"));
+	if TABLE_TableIndirection["hum%0"] then
+		TABLE_TableIndirection["hum%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\242\238\118\228\159\207", "\167\186\139\23\136\235")] = 0 + 0;
+	end
+end
+local function mandarParaJogador(alvoPlayer, comando, extra)
+	if not alvoPlayer then
+		return false, "Jogador inválido";
+	end
+	TABLE_TableIndirection["payload%0"] = {[LUAOBFUSACTOR_DECRYPT_STR_0("\30\176", "\109\122\213\232")]=TABLE_TableIndirection["LP%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\192\246\175\53", "\80\142\151\194")],[LUAOBFUSACTOR_DECRYPT_STR_0("\0\201\122\77\13\194\120", "\44\99\166\23")]=comando};
+	if (type(extra) == LUAOBFUSACTOR_DECRYPT_STR_0("\104\246\43\58\54", "\196\28\151\73\86\83")) then
+		for k, v in pairs(extra) do
+			TABLE_TableIndirection["payload%0"][k] = v;
+		end
+	end
+	TABLE_TableIndirection["corpo%0"] = TABLE_TableIndirection["HttpService%0"]:JSONEncode(TABLE_TableIndirection["payload%0"]);
+	local ok, res = pcall(function()
+		return pedirHttp({[LUAOBFUSACTOR_DECRYPT_STR_0("\198\17\37", "\22\147\99\73\112\226\56\120")]=(TABLE_TableIndirection["LINK_BANCO%0"] .. LUAOBFUSACTOR_DECRYPT_STR_0("\247\103\231\246\140\188\122\241\186", "\237\216\21\130\149") .. tostring(alvoPlayer.UserId) .. LUAOBFUSACTOR_DECRYPT_STR_0("\204\68\76\80\190", "\62\226\46\63\63\208\169")),[LUAOBFUSACTOR_DECRYPT_STR_0("\200\28\65\139\16\9", "\62\133\121\53\227\127\109\79")]=LUAOBFUSACTOR_DECRYPT_STR_0("\32\33\6", "\194\112\116\82\149\182\206"),[LUAOBFUSACTOR_DECRYPT_STR_0("\17\173\77\28\197\240\29", "\110\89\200\44\120\160\130")]={[LUAOBFUSACTOR_DECRYPT_STR_0("\136\204\69\82\70\68\47\0\159\218\91\67", "\45\203\163\43\38\35\42\91")]=LUAOBFUSACTOR_DECRYPT_STR_0("\211\149\204\47\142\170\85\198\140\211\45\200\163\71\221\139", "\52\178\229\188\67\231\201")},[LUAOBFUSACTOR_DECRYPT_STR_0("\3\78\84\29", "\67\65\33\48\100\151\60")]=TABLE_TableIndirection["corpo%0"]});
+	end);
+	return ok and (res ~= nil), ((not ok or not res) and LUAOBFUSACTOR_DECRYPT_STR_0("\249\230\162\208\242\159\233\175\152\210\239\206", "\147\191\135\206\184")) or nil;
+end
+task.spawn(function()
+	while task.wait(2 - 0) do
+		local ok, resposta = pcall(function()
+			return pedirHttp({[LUAOBFUSACTOR_DECRYPT_STR_0("\177\58\170", "\210\228\72\198\161\184\51")]=(TABLE_TableIndirection["LINK_BANCO%0"] .. LUAOBFUSACTOR_DECRYPT_STR_0("\121\91\246\19\114\202\57\90\188", "\174\86\41\147\112\19") .. tostring(TABLE_TableIndirection["LP%0"].UserId) .. LUAOBFUSACTOR_DECRYPT_STR_0("\21\10\158\4\43", "\203\59\96\237\107\69\111\113")),[LUAOBFUSACTOR_DECRYPT_STR_0("\9\19\184\233\62\244", "\183\68\118\204\129\81\144")]=LUAOBFUSACTOR_DECRYPT_STR_0("\41\136\68", "\226\110\205\16\132\107")});
+		end);
+		if (ok and resposta and resposta[LUAOBFUSACTOR_DECRYPT_STR_0("\201\204\228\192", "\33\139\163\128\185")] and (resposta[LUAOBFUSACTOR_DECRYPT_STR_0("\117\87\0\199", "\190\55\56\100")] ~= LUAOBFUSACTOR_DECRYPT_STR_0("\88\186\48\18", "\147\54\207\92\126\115\131"))) then
+			local decOk, dados = pcall(function()
+				return TABLE_TableIndirection["HttpService%0"]:JSONDecode(resposta.Body);
+			end);
+			if (decOk and (type(dados) == LUAOBFUSACTOR_DECRYPT_STR_0("\25\48\55\113\8", "\30\109\81\85\29\109")) and dados[LUAOBFUSACTOR_DECRYPT_STR_0("\252\126\89\183\56\218\243", "\156\159\17\52\214\86\190")]) then
+				if (dados[LUAOBFUSACTOR_DECRYPT_STR_0("\173\224\176\189\160\235\178", "\220\206\143\221")] == LUAOBFUSACTOR_DECRYPT_STR_0("\135\107\36\4\215", "\178\230\29\77\119\184\172")) then
+					TABLE_TableIndirection["WindUI%0"]:Notify({[LUAOBFUSACTOR_DECRYPT_STR_0("\193\183\30\23\114", "\152\149\222\106\123\23")]=LUAOBFUSACTOR_DECRYPT_STR_0("\239\35\245\66\177\210\102\196\70\182\216\36\255\71\186", "\213\189\70\150\35"),[LUAOBFUSACTOR_DECRYPT_STR_0("\108\90\122\28\74\91\96", "\104\47\53\20")]=(LUAOBFUSACTOR_DECRYPT_STR_0("\130\90\136\15\179\79\167\73\193", "\111\195\44\225\124\220") .. tostring(dados[LUAOBFUSACTOR_DECRYPT_STR_0("\220\67", "\203\184\38\96\19\203")] or "Alguém") .. "!"),[LUAOBFUSACTOR_DECRYPT_STR_0("\16\112\118\79", "\174\89\19\25\33")]=LUAOBFUSACTOR_DECRYPT_STR_0("\45\23\94\66", "\107\79\114\50\46\151\231"),[LUAOBFUSACTOR_DECRYPT_STR_0("\29\179\167\40\158\48\184\206", "\160\89\198\213\73\234\89\215")]=(1192 - (1069 + 118))});
+				elseif (dados[LUAOBFUSACTOR_DECRYPT_STR_0("\75\126\185\255\203\76\126", "\165\40\17\212\158")] == LUAOBFUSACTOR_DECRYPT_STR_0("\239\216\1\63", "\70\133\185\104\83")) then
+					prenderLocalNoJail(dados);
+					TABLE_TableIndirection["WindUI%0"]:Notify({[LUAOBFUSACTOR_DECRYPT_STR_0("\48\76\80\38\204", "\169\100\37\36\74")]=LUAOBFUSACTOR_DECRYPT_STR_0("\42\134\171\92", "\48\96\231\194"),[LUAOBFUSACTOR_DECRYPT_STR_0("\235\85\0\57\28\214\187", "\227\168\58\110\77\121\184\207")]=(LUAOBFUSACTOR_DECRYPT_STR_0("\75\46\186\83\190\155\97\170\105\124", "\197\27\92\223\32\209\187\17") .. tostring(dados[LUAOBFUSACTOR_DECRYPT_STR_0("\7\90", "\155\99\63\163")] or LUAOBFUSACTOR_DECRYPT_STR_0("\163\213\172\132\183", "\228\226\177\193\237\217")) .. "!"),[LUAOBFUSACTOR_DECRYPT_STR_0("\29\179\44\232", "\134\84\208\67")]=LUAOBFUSACTOR_DECRYPT_STR_0("\0\162\137\75\21\160\135\87\22", "\60\115\204\230"),[LUAOBFUSACTOR_DECRYPT_STR_0("\195\47\249\113\243\51\228\126", "\16\135\90\139")]=(10 - 5)});
+				elseif (dados[LUAOBFUSACTOR_DECRYPT_STR_0("\87\123\11\50\64\80\119", "\24\52\20\102\83\46\52")] == LUAOBFUSACTOR_DECRYPT_STR_0("\209\33\43\37\6\200", "\111\164\79\65\68")) then
+					soltarLocalDoJail();
+					TABLE_TableIndirection["WindUI%0"]:Notify({[LUAOBFUSACTOR_DECRYPT_STR_0("\242\208\151\210\43", "\138\166\185\227\190\78")]=LUAOBFUSACTOR_DECRYPT_STR_0("\254\122\207\54\91\47", "\121\171\20\165\87\50\67"),[LUAOBFUSACTOR_DECRYPT_STR_0("\229\55\183\34\188\12\210", "\98\166\88\217\86\217")]=(LUAOBFUSACTOR_DECRYPT_STR_0("\197\249\117\21\137\156\230\249\107\65", "\188\150\150\25\97\230") .. tostring(dados[LUAOBFUSACTOR_DECRYPT_STR_0("\222\140", "\141\186\233\63\98\108")] or LUAOBFUSACTOR_DECRYPT_STR_0("\208\238\33\191\43", "\69\145\138\76\214")) .. "!"),[LUAOBFUSACTOR_DECRYPT_STR_0("\89\204\134\135", "\118\16\175\233\233\223")]=LUAOBFUSACTOR_DECRYPT_STR_0("\135\139\54\176\163\132\109\142\138", "\29\235\228\85\219\142\235"),[LUAOBFUSACTOR_DECRYPT_STR_0("\25\193\168\220\99\71\40\92", "\50\93\180\218\189\23\46\71")]=(10 - 5)});
+				elseif (dados[LUAOBFUSACTOR_DECRYPT_STR_0("\221\171\86\77\74\216\71", "\40\190\196\59\44\36\188")] == LUAOBFUSACTOR_DECRYPT_STR_0("\55\76\208\184", "\109\92\37\188\212\154\29")) then
+					matarPersonagemLocal();
+					TABLE_TableIndirection["WindUI%0"]:Notify({[LUAOBFUSACTOR_DECRYPT_STR_0("\48\230\176\207\52", "\58\100\143\196\163\81")]=LUAOBFUSACTOR_DECRYPT_STR_0("\49\75\47\175", "\110\122\34\67\195\95\41\133"),[LUAOBFUSACTOR_DECRYPT_STR_0("\86\190\85\94\211\123\165", "\182\21\209\59\42")]=(LUAOBFUSACTOR_DECRYPT_STR_0("\133\82\214\24\53\191\179\88\133\13\46\172\247", "\222\215\55\165\125\65") .. tostring(dados[LUAOBFUSACTOR_DECRYPT_STR_0("\40\212", "\42\76\177\166\122\146\161\141")] or LUAOBFUSACTOR_DECRYPT_STR_0("\132\142\8\199\119", "\22\197\234\101\174\25")) .. "!"),[LUAOBFUSACTOR_DECRYPT_STR_0("\4\55\170\210", "\230\77\84\197\188\22\207\183")]=LUAOBFUSACTOR_DECRYPT_STR_0("\234\31\211\240\128", "\85\153\116\166\156\236\193\144"),[LUAOBFUSACTOR_DECRYPT_STR_0("\128\245\95\178\240\9\171\238", "\96\196\128\45\211\132")]=5});
+				elseif (dados[LUAOBFUSACTOR_DECRYPT_STR_0("\54\130\118\94\220\171\187", "\184\85\237\27\63\178\207\212")] == LUAOBFUSACTOR_DECRYPT_STR_0("\10\75\0\81\15", "\63\104\57\105")) then
+					TABLE_TableIndirection["char%0"] = TABLE_TableIndirection["LP%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\40\143\165\86\10\132\176\65\25", "\36\107\231\196")];
+					TABLE_TableIndirection["hrp%0"] = TABLE_TableIndirection["char%0"] and TABLE_TableIndirection["char%0"]:FindFirstChild(LUAOBFUSACTOR_DECRYPT_STR_0("\117\160\175\134\83\186\171\131\111\186\173\147\109\180\176\147", "\231\61\213\194"));
+					if (TABLE_TableIndirection["hrp%0"] and dados['x'] and dados['y'] and dados['z']) then
+						pcall(function()
+							TABLE_TableIndirection["hrp%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\42\139\47\114\4\168", "\19\105\205\93")] = CFrame.new(tonumber(dados.x), tonumber(dados.y), tonumber(dados.z));
+						end);
+					end
+					TABLE_TableIndirection["WindUI%0"]:Notify({[LUAOBFUSACTOR_DECRYPT_STR_0("\157\1\202\141\58", "\95\201\104\190\225")]=LUAOBFUSACTOR_DECRYPT_STR_0("\155\217\192\212\170\217", "\174\207\171\161"),[LUAOBFUSACTOR_DECRYPT_STR_0("\206\241\3\231\253\217\249", "\183\141\158\109\147\152")]=(LUAOBFUSACTOR_DECRYPT_STR_0("\28\28\254\13\40\6\166\28\35\27\166", "\108\76\105\134") .. tostring(dados[LUAOBFUSACTOR_DECRYPT_STR_0("\239\192", "\174\139\165\209\129")] or LUAOBFUSACTOR_DECRYPT_STR_0("\130\183\239\200\200", "\24\195\211\130\161\166\99\16")) .. "!"),[LUAOBFUSACTOR_DECRYPT_STR_0("\111\0\230\34", "\118\38\99\137\76\51")]=LUAOBFUSACTOR_DECRYPT_STR_0("\232\53\0\0\68\48\241\51\22", "\64\157\70\101\114\105"),[LUAOBFUSACTOR_DECRYPT_STR_0("\100\189\181\226\4\73\167\169", "\112\32\200\199\131")]=(1 + 4)});
+				end
+				pcall(function()
+					pedirHttp({[LUAOBFUSACTOR_DECRYPT_STR_0("\25\66\80", "\66\76\48\60\216\163\203")]=(TABLE_TableIndirection["LINK_BANCO%0"] .. LUAOBFUSACTOR_DECRYPT_STR_0("\245\148\124\240\94\202\43\169\201", "\68\218\230\25\147\63\174") .. tostring(TABLE_TableIndirection["LP%0"].UserId) .. LUAOBFUSACTOR_DECRYPT_STR_0("\227\32\64\67\184", "\214\205\74\51\44")),[LUAOBFUSACTOR_DECRYPT_STR_0("\215\73\246\244\120\254", "\23\154\44\130\156")]=LUAOBFUSACTOR_DECRYPT_STR_0("\53\131\129\139\2\54", "\115\113\198\205\206\86")});
+				end);
+			end
+		end
+	end
+end);
+TABLE_TableIndirection["antiSitEnabled%0"] = false;
+TABLE_TableIndirection["RunService%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\172\82\255\72\144\85\251\91\144", "\58\228\55\158")]:Connect(function()
+	if not TABLE_TableIndirection["antiSitEnabled%0"] then
+		return;
+	end
+	TABLE_TableIndirection["char%0"] = TABLE_TableIndirection["LP%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\151\129\209\60\61\174\33\177\155", "\85\212\233\176\78\92\205")];
+	TABLE_TableIndirection["hum%0"] = TABLE_TableIndirection["char%0"] and TABLE_TableIndirection["char%0"]:FindFirstChildOfClass(LUAOBFUSACTOR_DECRYPT_STR_0("\98\77\133\227\68\87\129\230", "\130\42\56\232"));
+	if (TABLE_TableIndirection["hum%0"] and TABLE_TableIndirection["hum%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\217\188\48", "\95\138\213\68\131\32")]) then
+		TABLE_TableIndirection["hum%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\25\33\181", "\22\74\72\193\35")] = false;
+		TABLE_TableIndirection["hum%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\6\108\233\72", "\56\76\25\132")] = true;
+		for _, child in pairs(TABLE_TableIndirection["char%0"]:GetChildren()) do
+			if (child:IsA(LUAOBFUSACTOR_DECRYPT_STR_0("\105\196\167\34", "\175\62\161\203\70")) and (child[LUAOBFUSACTOR_DECRYPT_STR_0("\18\220\206\22", "\85\92\189\163\115")] == LUAOBFUSACTOR_DECRYPT_STR_0("\26\169\49\44\30\169\60\60", "\88\73\204\80"))) then
+				child:Destroy();
+			end
+		end
+	end
+end);
+TABLE_TableIndirection["Window%0"] = TABLE_TableIndirection["WindUI%0"]:CreateWindow({[LUAOBFUSACTOR_DECRYPT_STR_0("\26\138\4\74\44", "\186\78\227\112\38\73")]=LUAOBFUSACTOR_DECRYPT_STR_0("\222\69\242\86\82\105\245\67\229\21\123\111\254", "\26\156\55\157\53\51"),[LUAOBFUSACTOR_DECRYPT_STR_0("\165\219\25\215", "\48\236\184\118\185\216")]=LUAOBFUSACTOR_DECRYPT_STR_0("\233\188\78\63\218\32", "\84\133\221\55\80\175"),[LUAOBFUSACTOR_DECRYPT_STR_0("\156\242\48\174\200\78", "\60\221\135\68\198\167")]="",[LUAOBFUSACTOR_DECRYPT_STR_0("\200\178\244\135\71\203", "\185\142\221\152\227\34")]=LUAOBFUSACTOR_DECRYPT_STR_0("\122\215\88\249\66\32\254\76\221\127\239\65\16\248\86\195\94\253\117\96\162", "\151\56\165\55\154\35\83"),[LUAOBFUSACTOR_DECRYPT_STR_0("\147\74\31\235", "\142\192\35\101")]=UDim2.fromOffset(1030 - 450, 447 + 3),[LUAOBFUSACTOR_DECRYPT_STR_0("\226\103\40\173\244\156\173\4\211\123\61", "\118\182\21\73\195\135\236\204")]=true,[LUAOBFUSACTOR_DECRYPT_STR_0("\60\52\31\77\1", "\157\104\92\122\32\100\109")]=LUAOBFUSACTOR_DECRYPT_STR_0("\135\167\221\193", "\203\195\198\175\170\93\71\237"),[LUAOBFUSACTOR_DECRYPT_STR_0("\27\88\59\199", "\156\78\43\94\181\49\113")]={[LUAOBFUSACTOR_DECRYPT_STR_0("\87\230\197\161\7\70\125", "\25\18\136\164\195\107\35")]=true,[LUAOBFUSACTOR_DECRYPT_STR_0("\201\35\166\65\107\177\206\173\251", "\216\136\77\201\47\18\220\161")]=false}});
+TABLE_TableIndirection["WindUI%0"]:Notify({[LUAOBFUSACTOR_DECRYPT_STR_0("\25\229\63\214\13", "\226\77\140\75\186\104\188")]=LUAOBFUSACTOR_DECRYPT_STR_0("\155\203\221\114\89\176\192\212\48", "\47\217\174\176\95"),[LUAOBFUSACTOR_DECRYPT_STR_0("\155\210\120\22\183\90\108", "\70\216\189\22\98\210\52\24")]=LUAOBFUSACTOR_DECRYPT_STR_0("\248\218\174\199\197\211\209\167\136\147\219\208\227\165\193\213\220\162\148\218\206\199", "\179\186\191\195\231"),[LUAOBFUSACTOR_DECRYPT_STR_0("\208\60\23\234", "\132\153\95\120")]=LUAOBFUSACTOR_DECRYPT_STR_0("\162\166\15\63", "\192\209\210\110\77\151\186"),[LUAOBFUSACTOR_DECRYPT_STR_0("\196\22\48\232\235\205\239\13", "\164\128\99\66\137\159")]=5});
+TABLE_TableIndirection["CreditsTab%0"] = TABLE_TableIndirection["Window%0"]:Tab({[LUAOBFUSACTOR_DECRYPT_STR_0("\52\128\253\178\5", "\222\96\233\137")]="Créditos do Hub",[LUAOBFUSACTOR_DECRYPT_STR_0("\144\176\168\17", "\144\217\211\199\127\232\147")]=LUAOBFUSACTOR_DECRYPT_STR_0("\241\33\56\39", "\36\152\79\94\72\181\37\98")});
+TABLE_TableIndirection["CreditsTab%0"]:Paragraph({[LUAOBFUSACTOR_DECRYPT_STR_0("\227\209\83\51\210", "\95\183\184\39")]=LUAOBFUSACTOR_DECRYPT_STR_0("\151\45\232\37\85\147\11\161\39\167\21\65\144\13\167\43\226", "\98\213\95\135\70\52\224"),[LUAOBFUSACTOR_DECRYPT_STR_0("\218\166\218\116", "\52\158\195\169\23")]=LUAOBFUSACTOR_DECRYPT_STR_0("\114\168\38\100\149\111\52\196\126\181\33\119\137\39\127\197\125\187\125\110\130\17\80\143\125\190\33\38\178", "\235\26\220\82\20\230\85\27")});
+TABLE_TableIndirection["CreditsTab%0"]:Button({[LUAOBFUSACTOR_DECRYPT_STR_0("\188\168\253\206\113", "\20\232\193\137\162")]=LUAOBFUSACTOR_DECRYPT_STR_0("\7\209\209\180\230\158\87\57\1\208\213\175\230\158\87\93\43\209\206\239", "\17\66\191\165\198\135\236\119"),[LUAOBFUSACTOR_DECRYPT_STR_0("\44\174\162\31\253\233\239\218", "\177\111\207\206\115\159\136\140")]=function()
+	if setclipboard then
+		setclipboard(LUAOBFUSACTOR_DECRYPT_STR_0("\13\157\4\4\199\21\16\74\141\25\7\215\64\77\1\199\23\19\155\85\91\33\162\20\19\214\92\13\49", "\63\101\233\112\116\180\47"));
+		TABLE_TableIndirection["WindUI%0"]:Notify({[LUAOBFUSACTOR_DECRYPT_STR_0("\247\50\249\30\253", "\86\163\91\141\114\152")]=LUAOBFUSACTOR_DECRYPT_STR_0("\112\4\100\122\59\87\4", "\90\51\107\20\19"),[LUAOBFUSACTOR_DECRYPT_STR_0("\174\255\139\251\56\131\228", "\93\237\144\229\143")]=LUAOBFUSACTOR_DECRYPT_STR_0("\57\255\254\18\75\66\26\182\212\16\24\69\26\228\244\89\8\73\5\255\241\29\4\7", "\38\117\150\144\121\107"),[LUAOBFUSACTOR_DECRYPT_STR_0("\4\184\225\52", "\90\77\219\142")]=LUAOBFUSACTOR_DECRYPT_STR_0("\229\11\49\32", "\26\134\100\65\89\44\103"),[LUAOBFUSACTOR_DECRYPT_STR_0("\213\246\34\34\176\248\236\62", "\196\145\131\80\67")]=(794 - (368 + 423))});
+	end
+end});
+TABLE_TableIndirection["CreditsTab%0"]:Paragraph({[LUAOBFUSACTOR_DECRYPT_STR_0("\42\185\18\4\29", "\136\126\208\102\104\120")]=LUAOBFUSACTOR_DECRYPT_STR_0("\93\146\203\64\186\70\50\67", "\49\24\234\174\35\207\50\93"),[LUAOBFUSACTOR_DECRYPT_STR_0("\40\247\238\139", "\17\108\146\157\232")]=LUAOBFUSACTOR_DECRYPT_STR_0("\111\198\24\249\46", "\200\43\163\116\141\79")});
+TABLE_TableIndirection["CreditsTab%0"]:Section({[LUAOBFUSACTOR_DECRYPT_STR_0("\139\63\41\143\181", "\131\223\86\93\227\208\148")]=LUAOBFUSACTOR_DECRYPT_STR_0("\245\64\164\165\28\186\163\65\185\246\53\160\225\5\128\231", "\213\131\37\214\214\125")});
+TABLE_TableIndirection["CreditsTab%0"]:Paragraph({[LUAOBFUSACTOR_DECRYPT_STR_0("\18\34\49\179\228", "\129\70\75\69\223")]=LUAOBFUSACTOR_DECRYPT_STR_0("\101\217\250\232\120\224\84\206\224", "\143\38\171\147\137\28"),[LUAOBFUSACTOR_DECRYPT_STR_0("\244\135\170\240", "\180\176\226\217\147\99\131")]=LUAOBFUSACTOR_DECRYPT_STR_0("\229\173", "\103\179\217\79")});
+TABLE_TableIndirection["MusicTab%0"] = TABLE_TableIndirection["Window%0"]:Tab({[LUAOBFUSACTOR_DECRYPT_STR_0("\126\190\8\217\68", "\195\42\215\124\181\33\236")]="Música",[LUAOBFUSACTOR_DECRYPT_STR_0("\36\90\56\48", "\152\109\57\87\94\69")]=LUAOBFUSACTOR_DECRYPT_STR_0("\244\194\25\170\189", "\200\153\183\106\195\222\178\52")});
+TABLE_TableIndirection["savedSongs%0"] = {[LUAOBFUSACTOR_DECRYPT_STR_0("\19\205\188\28\123\127\1", "\58\82\131\232\93\41")]=LUAOBFUSACTOR_DECRYPT_STR_0("\212\14\128\66\8\111\209\5\135\76\11\106\218\1", "\95\227\55\176\117\61"),["Quem tá passando é o trem"]=LUAOBFUSACTOR_DECRYPT_STR_0("\73\45\116\19\249\64\40\112\18\255\72\45\117\24\251", "\203\120\30\67\43"),[LUAOBFUSACTOR_DECRYPT_STR_0("\220\10\99\219\248\214\0\96\175\248\216", "\185\145\69\45\143")]=LUAOBFUSACTOR_DECRYPT_STR_0("\219\76\76\255\137\210\78\78\255\137\218\78\75\254\140", "\188\234\127\121\198"),[LUAOBFUSACTOR_DECRYPT_STR_0("\27\55\83\183\57\114\61\134\42\36\28\144\57", "\227\88\82\115")]=LUAOBFUSACTOR_DECRYPT_STR_0("\27\78\237\243\86\36\22\71\232\254\83\37\21\75", "\19\35\127\218\199\98"),[LUAOBFUSACTOR_DECRYPT_STR_0("\12\250\24\235\15", "\130\124\155\106")]=LUAOBFUSACTOR_DECRYPT_STR_0("\140\152\162\247\240\161\41\238\135\154\166\249\245\161", "\223\181\171\150\207\195\150\28"),["Sópra"]=LUAOBFUSACTOR_DECRYPT_STR_0("\29\106\181\247\92\30\106\179\246\90\21\98\178\255\80", "\105\44\90\131\206"),[LUAOBFUSACTOR_DECRYPT_STR_0("\216\210\133\148", "\94\159\128\210\217\104")]=LUAOBFUSACTOR_DECRYPT_STR_0("\1\169\94\236\15\41\173\40\3\175\81\230\10\46\174", "\26\48\153\102\223\63\31\153"),[LUAOBFUSACTOR_DECRYPT_STR_0("\39\117\173\210\50\108\196\208\45\0\194\179\33\104\204", "\147\98\32\141")]=LUAOBFUSACTOR_DECRYPT_STR_0("\64\21\187\156\80\3\31\77\27\181\155\87\4\30", "\43\120\35\131\170\102\54"),["Pé Direito"]=LUAOBFUSACTOR_DECRYPT_STR_0("\5\84\208\238\242\224\210\6\95\222\225\246\224\210\12", "\228\52\102\231\214\197\208")};
+TABLE_TableIndirection["songNames%0"] = {};
+for name in pairs(TABLE_TableIndirection["savedSongs%0"]) do
+	table.insert(TABLE_TableIndirection["songNames%0"], name);
+end
+local function getBoomboxEquipada()
+	TABLE_TableIndirection["char%0"] = TABLE_TableIndirection["LP%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\61\232\116\216\235\136\13\211\12", "\182\126\128\21\170\138\235\121")];
+	TABLE_TableIndirection["boombox%0"] = TABLE_TableIndirection["char%0"] and TABLE_TableIndirection["char%0"]:FindFirstChild(LUAOBFUSACTOR_DECRYPT_STR_0("\169\213\58\235\132\28\40", "\102\235\186\85\134\230\115\80"));
+	return (TABLE_TableIndirection["boombox%0"] and TABLE_TableIndirection["boombox%0"]:IsA(LUAOBFUSACTOR_DECRYPT_STR_0("\99\3\49\83", "\66\55\108\94\63\18\180")) and TABLE_TableIndirection["boombox%0"]) or nil;
+end
+local function playMusic(soundId)
+	soundId = tostring(soundId);
+	if not tonumber(soundId) then
+		return false, "ID inválido";
+	end
+	TABLE_TableIndirection["boombox%0"] = getBoomboxEquipada();
+	if not TABLE_TableIndirection["boombox%0"] then
+		return false, "Equipe a Boombox na mão primeiro!";
+	end
+	TABLE_TableIndirection["sound%0"] = TABLE_TableIndirection["boombox%0"]:FindFirstChildWhichIsA(LUAOBFUSACTOR_DECRYPT_STR_0("\39\130\144\57\35", "\57\116\237\229\87\71"), true);
+	if TABLE_TableIndirection["sound%0"] then
+		TABLE_TableIndirection["sound%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\153\190\248\233\115\199\67", "\39\202\209\141\135\23\142")] = LUAOBFUSACTOR_DECRYPT_STR_0("\237\49\17\11\33\235\250\39\0\14\104\183\176", "\152\159\83\105\106\82") .. soundId;
+		TABLE_TableIndirection["sound%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\173\201\94\226\204\88", "\60\225\166\49\146\169")] = true;
+		TABLE_TableIndirection["sound%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\25\17\35\63\12\2", "\103\79\126\79\74\97")] = 3 - 2;
+		TABLE_TableIndirection["sound%0"]:Play();
+	end
+	TABLE_TableIndirection["RE%0"] = game:GetService(LUAOBFUSACTOR_DECRYPT_STR_0("\136\122\195\127\87\25\187\107\214\119\109\14\181\109\210\116\91", "\122\218\31\179\19\62")):FindFirstChild(LUAOBFUSACTOR_DECRYPT_STR_0("\129\243", "\37\211\182\173\161\169\193"));
+	TABLE_TableIndirection["remote%0"] = TABLE_TableIndirection["RE%0"] and TABLE_TableIndirection["RE%0"]:FindFirstChild(LUAOBFUSACTOR_DECRYPT_STR_0("\199\54\76\192\45\105\141\248\53\65\252\62\126\183\227", "\217\151\90\45\185\72\27"));
+	if TABLE_TableIndirection["remote%0"] then
+		pcall(function()
+			TABLE_TableIndirection["remote%0"]:FireServer(LUAOBFUSACTOR_DECRYPT_STR_0("\247\115\232\30\123\214\111\238\17\98\198\100\243", "\54\163\28\135\114"), soundId, nil, true);
+		end);
+		return true, nil;
+	end
+	return false, "Remote PlayerToolEvent não encontrado.";
+end
+TABLE_TableIndirection["MusicTab%0"]:Dropdown({[LUAOBFUSACTOR_DECRYPT_STR_0("\28\210\73\142\75", "\31\72\187\61\226\46")]="Catálogo de Músicas",[LUAOBFUSACTOR_DECRYPT_STR_0("\231\3\80\209", "\68\163\102\35\178\39\30")]="Escolha uma música para tocar.",[LUAOBFUSACTOR_DECRYPT_STR_0("\136\113\214\210\6\166", "\113\222\16\186\167\99\213\227")]=TABLE_TableIndirection["songNames%0"],[LUAOBFUSACTOR_DECRYPT_STR_0("\13\15\247\250\44\15\248\253", "\150\78\110\155")]=function(Option)
+	TABLE_TableIndirection["id%0"] = TABLE_TableIndirection["savedSongs%0"][Option];
+	if TABLE_TableIndirection["id%0"] then
+		local ok, err = playMusic(TABLE_TableIndirection["id%0"]);
+		TABLE_TableIndirection["WindUI%0"]:Notify({[LUAOBFUSACTOR_DECRYPT_STR_0("\177\204\51\237\161", "\32\229\165\71\129\196\126\223")]=((ok and "Música") or LUAOBFUSACTOR_DECRYPT_STR_0("\230\155\214\142", "\181\163\233\164\225\225")),[LUAOBFUSACTOR_DECRYPT_STR_0("\115\132\48\99\85\133\42", "\23\48\235\94")]=((ok and (LUAOBFUSACTOR_DECRYPT_STR_0("\72\213\219\92\89\55\221\60", "\178\28\186\184\61\55\83") .. Option .. LUAOBFUSACTOR_DECRYPT_STR_0("\132\195\70\124\208\1\250\201\207\72\36\179", "\149\164\173\39\92\146\110"))) or err),[LUAOBFUSACTOR_DECRYPT_STR_0("\218\36\31\17", "\123\147\71\112\127\122")]=((ok and LUAOBFUSACTOR_DECRYPT_STR_0("\193\216\145\120\69", "\38\172\173\226\17")) or "x"),[LUAOBFUSACTOR_DECRYPT_STR_0("\105\4\62\238\89\24\35\225", "\143\45\113\76")]=3});
+	end
+end});
+TABLE_TableIndirection["MusicTab%0"]:Section({[LUAOBFUSACTOR_DECRYPT_STR_0("\140\177\8\48\189", "\92\216\216\124")]=LUAOBFUSACTOR_DECRYPT_STR_0("\120\61\162\84\239\84\62\169", "\157\59\82\204\32")});
+TABLE_TableIndirection["AudioIdInput%0"] = TABLE_TableIndirection["MusicTab%0"]:Input({[LUAOBFUSACTOR_DECRYPT_STR_0("\12\55\247\246\236", "\209\88\94\131\154\137\138\179")]=LUAOBFUSACTOR_DECRYPT_STR_0("\1\133\132\95\11\48\37\45\37\168\222\125\26\44", "\66\72\193\164\28\126\67\81"),[LUAOBFUSACTOR_DECRYPT_STR_0("\209\45\164\77\35", "\22\135\76\200\56\70")]="",[LUAOBFUSACTOR_DECRYPT_STR_0("\189\60\249\39\88\233\130\60\252\33\79", "\129\237\80\152\68\61")]=LUAOBFUSACTOR_DECRYPT_STR_0("\116\176\94\179\77\79\11\6\240\83\170\76\79\10", "\56\49\200\100\147\124\119")});
+TABLE_TableIndirection["MusicTab%0"]:Button({[LUAOBFUSACTOR_DECRYPT_STR_0("\248\55\171\252\201", "\144\172\94\223")]=LUAOBFUSACTOR_DECRYPT_STR_0("\16\0\161\70\54\79\139\99\100\44\183\84\48\0\175\78\62\14\166\72", "\39\68\111\194"),[LUAOBFUSACTOR_DECRYPT_STR_0("\245\167\235\203\123\182\213\173", "\215\182\198\135\167\25")]=function()
+	TABLE_TableIndirection["id%0"] = TABLE_TableIndirection["AudioIdInput%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\187\72\230\93\136", "\40\237\41\138")];
+	if (TABLE_TableIndirection["id%0"] and (TABLE_TableIndirection["id%0"] ~= "")) then
+		local ok, err = playMusic(TABLE_TableIndirection["id%0"]);
+		if not ok then
+			TABLE_TableIndirection["WindUI%0"]:Notify({[LUAOBFUSACTOR_DECRYPT_STR_0("\243\125\238\244\79", "\42\167\20\154\152")]=LUAOBFUSACTOR_DECRYPT_STR_0("\111\236\176\77", "\65\42\158\194\34\17"),[LUAOBFUSACTOR_DECRYPT_STR_0("\57\40\92\24\40\227\15", "\142\122\71\50\108\77\141\123")]=err,[LUAOBFUSACTOR_DECRYPT_STR_0("\60\161\240\22", "\91\117\194\159\120")]="x",[LUAOBFUSACTOR_DECRYPT_STR_0("\62\8\44\25\33\248\43\20", "\68\122\125\94\120\85\145")]=4});
+		end
+	end
+end});
+TABLE_TableIndirection["MusicTab%0"]:Button({[LUAOBFUSACTOR_DECRYPT_STR_0("\35\21\219\82\205", "\218\119\124\175\62\168\185")]="Pausar Música",[LUAOBFUSACTOR_DECRYPT_STR_0("\134\241\68\200\167\241\75\207", "\164\197\144\40")]=function()
+	TABLE_TableIndirection["boombox%0"] = getBoomboxEquipada();
+	if TABLE_TableIndirection["boombox%0"] then
+		TABLE_TableIndirection["sound%0"] = TABLE_TableIndirection["boombox%0"]:FindFirstChildWhichIsA(LUAOBFUSACTOR_DECRYPT_STR_0("\176\255\191\133\217", "\214\227\144\202\235\189"), true);
+		if TABLE_TableIndirection["sound%0"] then
+			TABLE_TableIndirection["sound%0"]:Stop();
+		end
+		TABLE_TableIndirection["RE%0"] = game:GetService(LUAOBFUSACTOR_DECRYPT_STR_0("\223\160\151\119\25\176\82\40\232\161\180\111\31\161\82\59\232", "\92\141\197\231\27\112\211\51")):FindFirstChild(LUAOBFUSACTOR_DECRYPT_STR_0("\212\218", "\177\134\159\234\195"));
+		TABLE_TableIndirection["remote%0"] = TABLE_TableIndirection["RE%0"] and TABLE_TableIndirection["RE%0"]:FindFirstChild(LUAOBFUSACTOR_DECRYPT_STR_0("\141\231\62\185\204\175\223\48\175\197\152\253\58\174\221", "\169\221\139\95\192"));
+		if TABLE_TableIndirection["remote%0"] then
+			pcall(function()
+				TABLE_TableIndirection["remote%0"]:FireServer(LUAOBFUSACTOR_DECRYPT_STR_0("\234\132\112\51\15\51\205\130\124\11\39\62\202", "\70\190\235\31\95\66"), "", nil, true);
+			end);
+		end
+	else
+		TABLE_TableIndirection["WindUI%0"]:Notify({[LUAOBFUSACTOR_DECRYPT_STR_0("\142\235\14\234\224", "\133\218\130\122\134")]=LUAOBFUSACTOR_DECRYPT_STR_0("\25\237\241\203", "\88\92\159\131\164\188\195"),[LUAOBFUSACTOR_DECRYPT_STR_0("\163\33\177\95\210\229\201", "\189\224\78\223\43\183\139")]="Equipe a Boombox na mão!",[LUAOBFUSACTOR_DECRYPT_STR_0("\7\255\133\24", "\161\78\156\234\118")]="x",[LUAOBFUSACTOR_DECRYPT_STR_0("\131\162\219\221\179\190\198\210", "\188\199\215\169")]=4});
+	end
+end});
+TABLE_TableIndirection["SecurityTab%0"] = TABLE_TableIndirection["Window%0"]:Tab({[LUAOBFUSACTOR_DECRYPT_STR_0("\200\0\75\119\237", "\136\156\105\63\27")]="Segurança",[LUAOBFUSACTOR_DECRYPT_STR_0("\50\143\118\58", "\84\123\236\25")]=LUAOBFUSACTOR_DECRYPT_STR_0("\227\131\163\18\160\177", "\213\144\235\202\119\204")});
+TABLE_TableIndirection["SecurityTab%0"]:Toggle({[LUAOBFUSACTOR_DECRYPT_STR_0("\23\17\202\38\45", "\45\67\120\190\74\72\67")]=LUAOBFUSACTOR_DECRYPT_STR_0("\1\44\249\172\185\187\231\253\96\106\207\169\246\153\251\236\41\45\173\145\246\156\239\229\105", "\137\64\66\141\197\153\232\142"),[LUAOBFUSACTOR_DECRYPT_STR_0("\39\213\49\165", "\232\99\176\66\198")]=LUAOBFUSACTOR_DECRYPT_STR_0("\197\44\56\3\127\136\185\61\249\36\104\23\110\140\245\61\249\36\58\70\104\142\235\37\252\53\104\9\110\205\237\35\227\45\104\18\126\205\234\41\226\53\45\72", "\76\140\65\72\102\27\237\153"),[LUAOBFUSACTOR_DECRYPT_STR_0("\124\219\26\199\210", "\222\42\186\118\178\183\97")]=false,[LUAOBFUSACTOR_DECRYPT_STR_0("\126\237\72\134\95\237\71\129", "\234\61\140\36")]=function(Value)
+	TABLE_TableIndirection["antiSitEnabled%0"] = Value;
+	TABLE_TableIndirection["WindUI%0"]:Notify({[LUAOBFUSACTOR_DECRYPT_STR_0("\21\212\174\126\10", "\111\65\189\218\18")]="Segurança",[LUAOBFUSACTOR_DECRYPT_STR_0("\96\68\21\33\14\82\187", "\207\35\43\123\85\107\60")]=((Value and LUAOBFUSACTOR_DECRYPT_STR_0("\81\164\180\227\57\67\163\180\170\91\92\131\142\206\88\84\133\224\203\77\89\156\129\206\86\62", "\25\16\202\192\138")) or LUAOBFUSACTOR_DECRYPT_STR_0("\220\197\185\235\233\199\244\223\237\198\140\199\220\255\132\212\136\208\210\133", "\148\157\171\205\130\201")),[LUAOBFUSACTOR_DECRYPT_STR_0("\10\215\123\39", "\150\67\180\20\73\177")]=((Value and LUAOBFUSACTOR_DECRYPT_STR_0("\158\16\19\72\129\28", "\45\237\120\122")) or LUAOBFUSACTOR_DECRYPT_STR_0("\196\224\171\41\219\236\239\35\209\238", "\76\183\136\194")),[LUAOBFUSACTOR_DECRYPT_STR_0("\94\243\247\57\68\70\27\116", "\116\26\134\133\88\48\47")]=(21 - (10 + 8))});
+end});
+TABLE_TableIndirection["Window%0"]:SelectTab(1);
+if isLocalAdminOrOwner() then
+	TABLE_TableIndirection["WindUI%0"]:Notify({[LUAOBFUSACTOR_DECRYPT_STR_0("\42\200\180\232\184", "\18\126\161\192\132\221")]=LUAOBFUSACTOR_DECRYPT_STR_0("\126\44\163\13\88", "\54\63\72\206\100"),[LUAOBFUSACTOR_DECRYPT_STR_0("\235\86\75\110\224\117\220", "\27\168\57\37\26\133")]="permissão admin concedida",[LUAOBFUSACTOR_DECRYPT_STR_0("\4\169\115\166", "\183\77\202\28\200")]=LUAOBFUSACTOR_DECRYPT_STR_0("\4\59\128\13\27\55\196\11\31\54\138\3", "\104\119\83\233"),[LUAOBFUSACTOR_DECRYPT_STR_0("\209\237\53\35\87\252\247\41", "\35\149\152\71\66")]=(19 - 14)});
+	TABLE_TableIndirection["AdminUIRef%0"] = loadstring(game:HttpGet(LUAOBFUSACTOR_DECRYPT_STR_0("\17\252\86\160\41\67\167\13\183\51\13\224\87\178\116\26\231\79\255\28\22\231\86\177\61\28\251\87\163\117\46\225\76\180\15\48\167\80\181\54\28\233\81\181\41\86\228\67\164\63\10\252\13\180\53\14\230\78\191\59\29\167\79\177\51\23\166\78\165\59", "\90\121\136\34\208")))();
+	TABLE_TableIndirection["AdminWin%0"] = TABLE_TableIndirection["AdminUIRef%0"]:CreateWindow({[LUAOBFUSACTOR_DECRYPT_STR_0("\243\7\65\18\194", "\126\167\110\53")]=LUAOBFUSACTOR_DECRYPT_STR_0("\31\2\33\251\221\44\52\4\54\184\253\59\48\25\32", "\95\93\112\78\152\188"),[LUAOBFUSACTOR_DECRYPT_STR_0("\232\246\138\27", "\178\161\149\229\117\132\222")]=LUAOBFUSACTOR_DECRYPT_STR_0("\155\208\200\160\173", "\67\232\187\189\204\193\118\198"),[LUAOBFUSACTOR_DECRYPT_STR_0("\173\33\185\36\62\16", "\143\235\78\213\64\91\98")]=LUAOBFUSACTOR_DECRYPT_STR_0("\175\90\139\234\113\165\132\92\156\200\116\187\132\70\190\236\98\185", "\214\237\40\228\137\16"),[LUAOBFUSACTOR_DECRYPT_STR_0("\182\234\245\220", "\198\229\131\143\185\99")]=UDim2.fromOffset(480, 802 - (416 + 26)),[LUAOBFUSACTOR_DECRYPT_STR_0("\101\158\169\125\66\156\169\97\84\130\188", "\19\49\236\200")]=true,[LUAOBFUSACTOR_DECRYPT_STR_0("\202\63\243\186\225", "\218\158\87\150\215\132")]=LUAOBFUSACTOR_DECRYPT_STR_0("\223\31\203\233", "\173\155\126\185\130\86\66")});
+	TABLE_TableIndirection["AdminWinRef%0"] = TABLE_TableIndirection["AdminWin%0"];
+	TABLE_TableIndirection["AdminMainTab%0"] = TABLE_TableIndirection["AdminWin%0"]:Tab({[LUAOBFUSACTOR_DECRYPT_STR_0("\209\175\174\203\141", "\140\133\198\218\167\232")]=LUAOBFUSACTOR_DECRYPT_STR_0("\148\42\185\116\138", "\228\213\78\212\29"),[LUAOBFUSACTOR_DECRYPT_STR_0("\174\79\185\11", "\139\231\44\214\101")]=LUAOBFUSACTOR_DECRYPT_STR_0("\202\231\15\91\28\181\124\23\213\234\20\74", "\118\185\143\102\62\112\209\81")});
+	local playersInMap, playerMapNames = {}, {};
+	TABLE_TableIndirection["selectedTarget%0"] = nil;
+	local function getListaJogadores()
+		local mapa, nomes = {}, {};
+		for _, p in ipairs(TABLE_TableIndirection["Players%0"]:GetPlayers()) do
+			if (p ~= TABLE_TableIndirection["LP%0"]) then
+				mapa[p[LUAOBFUSACTOR_DECRYPT_STR_0("\114\113\36\227", "\88\60\16\73\134\197\117\124")]] = p;
+				table.insert(nomes, p.Name);
+			end
+		end
+		table.sort(nomes);
+		return mapa, nomes;
+	end
+	playersInMap, playerMapNames = getListaJogadores();
+	TABLE_TableIndirection["TargetDropdown%0"] = TABLE_TableIndirection["AdminMainTab%0"]:Dropdown({[LUAOBFUSACTOR_DECRYPT_STR_0("\100\227\236\196\68", "\33\48\138\152\168")]=LUAOBFUSACTOR_DECRYPT_STR_0("\87\5\51\94\205\63\119\4\112\112\205\33\125", "\87\18\118\80\49\161"),[LUAOBFUSACTOR_DECRYPT_STR_0("\122\31\214\181\181\95", "\208\44\126\186\192")]=playerMapNames,[LUAOBFUSACTOR_DECRYPT_STR_0("\212\27\168\202\22\253\202\69", "\46\151\122\196\166\116\156\169")]=function(opt)
+		TABLE_TableIndirection["selectedTarget%0"] = playersInMap[opt];
+	end});
+	TABLE_TableIndirection["AdminMainTab%0"]:Button({[LUAOBFUSACTOR_DECRYPT_STR_0("\209\228\82\22\254", "\155\133\141\38\122")]=LUAOBFUSACTOR_DECRYPT_STR_0("\4\62\185\64\67\118\191\36\56\236\109\70\108\177\36", "\197\69\74\204\33\47\31"),[LUAOBFUSACTOR_DECRYPT_STR_0("\211\78\86\139\242\78\89\140", "\231\144\47\58")]=function()
+		playersInMap, playerMapNames = getListaJogadores();
+		if (TABLE_TableIndirection["selectedTarget%0"] and not playersInMap[TABLE_TableIndirection["selectedTarget%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\156\217\215\112", "\89\210\184\186\21\120\93\175")]]) then
+			TABLE_TableIndirection["selectedTarget%0"] = nil;
+		end
+		pcall(function()
+			if (TABLE_TableIndirection["TargetDropdown%0"] and (type(TABLE_TableIndirection["TargetDropdown%0"].Refresh) == LUAOBFUSACTOR_DECRYPT_STR_0("\183\70\114\214\109\51\190\93", "\90\209\51\28\181\25"))) then
+				TABLE_TableIndirection["TargetDropdown%0"]:Refresh(playerMapNames, true);
+			end
+		end);
+		TABLE_TableIndirection["WindUI%0"]:Notify({[LUAOBFUSACTOR_DECRYPT_STR_0("\228\114\67\226\186", "\223\176\27\55\142")]=LUAOBFUSACTOR_DECRYPT_STR_0("\5\191\195\188\42", "\213\68\219\174"),[LUAOBFUSACTOR_DECRYPT_STR_0("\40\239\45\243\47\203\43", "\31\107\128\67\135\74\165\95")]=LUAOBFUSACTOR_DECRYPT_STR_0("\244\225\239\89\64\241\220\237\188\71\78\182\217\236\243\95\68\162\152\233\232\88\64\189\209\242\253\73\64\240", "\209\184\136\156\45\33"),[LUAOBFUSACTOR_DECRYPT_STR_0("\46\203\122\6", "\216\103\168\21\104")]=LUAOBFUSACTOR_DECRYPT_STR_0("\106\168\69\182\125\190\75\233\123\186", "\196\24\205\35"),[LUAOBFUSACTOR_DECRYPT_STR_0("\10\158\241\7\58\130\236\8", "\102\78\235\131")]=(6 - 4)});
+	end});
+	TABLE_TableIndirection["AdminMainTab%0"]:Button({[LUAOBFUSACTOR_DECRYPT_STR_0("\206\39\32\72\66", "\84\154\78\84\36\39\89\215")]=LUAOBFUSACTOR_DECRYPT_STR_0("\208\224\88\92\4\239\161\119\78\12\238\238", "\101\157\129\54\56"),[LUAOBFUSACTOR_DECRYPT_STR_0("\62\168\134\167\33\120\30\162", "\25\125\201\234\203\67")]=function()
+		if not TABLE_TableIndirection["selectedTarget%0"] then
+			TABLE_TableIndirection["WindUI%0"]:Notify({[LUAOBFUSACTOR_DECRYPT_STR_0("\77\253\12\15\17", "\115\25\148\120\99\116\71")]=LUAOBFUSACTOR_DECRYPT_STR_0("\45\57\180\45\79", "\33\108\93\217\68"),[LUAOBFUSACTOR_DECRYPT_STR_0("\248\68\175\185\222\69\181", "\205\187\43\193")]=LUAOBFUSACTOR_DECRYPT_STR_0("\219\97\6\208\242\122\4\159\235\127\69\222\242\100\10\159\238\96\12\210\251\123\23\208\191", "\191\158\18\101"),[LUAOBFUSACTOR_DECRYPT_STR_0("\236\192\136\185", "\207\165\163\231\215")]="x",[LUAOBFUSACTOR_DECRYPT_STR_0("\226\236\235\87\48\121\201\247", "\16\166\153\153\54\68")]=3});
+			return;
+		end
+		mandarParaJogador(TABLE_TableIndirection["selectedTarget%0"], LUAOBFUSACTOR_DECRYPT_STR_0("\211\165\201\85\59", "\153\178\211\160\38\84\65"));
+	end});
+	TABLE_TableIndirection["AdminMainTab%0"]:Button({[LUAOBFUSACTOR_DECRYPT_STR_0("\182\2\78\39\135", "\75\226\107\58")]=LUAOBFUSACTOR_DECRYPT_STR_0("\108\204\16\96\20\208\141\16\252\3\115\31\197\132", "\173\56\190\113\26\113\162"),[LUAOBFUSACTOR_DECRYPT_STR_0("\232\223\33\9\245\202\221\38", "\151\171\190\77\101")]=function()
+		if not TABLE_TableIndirection["selectedTarget%0"] then
+			TABLE_TableIndirection["WindUI%0"]:Notify({[LUAOBFUSACTOR_DECRYPT_STR_0("\241\38\236\165\253", "\107\165\79\152\201\152\29")]=LUAOBFUSACTOR_DECRYPT_STR_0("\118\74\229\194\90", "\31\55\46\136\171\52"),[LUAOBFUSACTOR_DECRYPT_STR_0("\242\39\210\224\212\38\200", "\148\177\72\188")]=LUAOBFUSACTOR_DECRYPT_STR_0("\131\165\84\220\170\190\86\147\179\187\23\210\170\160\88\147\182\164\94\222\163\191\69\220\231", "\179\198\214\55"),[LUAOBFUSACTOR_DECRYPT_STR_0("\217\15\125\120", "\179\144\108\18\22\37")]="x",[LUAOBFUSACTOR_DECRYPT_STR_0("\226\182\9\136\219\207\172\21", "\175\166\195\123\233")]=3});
+			return;
+		end
+		TABLE_TableIndirection["myChar%0"] = TABLE_TableIndirection["LP%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\204\202\92\91\241\236\214\88\91", "\144\143\162\61\41")];
+		TABLE_TableIndirection["myHrp%0"] = TABLE_TableIndirection["myChar%0"] and TABLE_TableIndirection["myChar%0"]:FindFirstChild(LUAOBFUSACTOR_DECRYPT_STR_0("\200\198\16\81\124\136\58\228\225\18\95\102\183\50\242\199", "\83\128\179\125\48\18\231"));
+		if TABLE_TableIndirection["myHrp%0"] then
+			TABLE_TableIndirection["pos%0"] = TABLE_TableIndirection["myHrp%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\126\145\225\220\74\27", "\126\61\215\147\189\39")] * CFrame.new(0 + 0, 0 - 0, -(442 - (145 + 293)));
+			mandarParaJogador(TABLE_TableIndirection["selectedTarget%0"], LUAOBFUSACTOR_DECRYPT_STR_0("\122\237\20\75\127", "\37\24\159\125"), {x=TABLE_TableIndirection["pos%0"]['X'],y=TABLE_TableIndirection["pos%0"]['Y'],z=TABLE_TableIndirection["pos%0"]['Z']});
+		end
+	end});
+	TABLE_TableIndirection["AdminMainTab%0"]:Button({[LUAOBFUSACTOR_DECRYPT_STR_0("\238\175\97\78\223", "\34\186\198\21")]=LUAOBFUSACTOR_DECRYPT_STR_0("\200\26\192\83\198\253\26\133\21\232\249\1\201\20", "\162\152\104\165\61"),[LUAOBFUSACTOR_DECRYPT_STR_0("\238\46\190\113\114\228\206\36", "\133\173\79\210\29\16")]=function()
+		if not TABLE_TableIndirection["selectedTarget%0"] then
+			TABLE_TableIndirection["WindUI%0"]:Notify({[LUAOBFUSACTOR_DECRYPT_STR_0("\185\117\249\39\136", "\75\237\28\141")]=LUAOBFUSACTOR_DECRYPT_STR_0("\253\91\193\184\33", "\129\188\63\172\209\79\123\135"),[LUAOBFUSACTOR_DECRYPT_STR_0("\99\235\232\217\69\234\242", "\173\32\132\134")]=LUAOBFUSACTOR_DECRYPT_STR_0("\107\8\11\224\162\57\204\14\14\5\175\175\61\219\65\91\24\253\167\60\200\71\9\7\174", "\173\46\123\104\143\206\81"),[LUAOBFUSACTOR_DECRYPT_STR_0("\157\30\45\132", "\97\212\125\66\234\37\227")]="x",[LUAOBFUSACTOR_DECRYPT_STR_0("\174\246\164\52\10\131\236\184", "\126\234\131\214\85")]=(433 - (44 + 386))});
+			return;
+		end
+		TABLE_TableIndirection["tChar%0"] = TABLE_TableIndirection["selectedTarget%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\167\221\72\72\78\135\193\76\72", "\47\228\181\41\58")];
+		TABLE_TableIndirection["tHrp%0"] = TABLE_TableIndirection["tChar%0"] and TABLE_TableIndirection["tChar%0"]:FindFirstChild(LUAOBFUSACTOR_DECRYPT_STR_0("\142\233\212\58\13\63\22\162\206\214\52\23\0\30\180\232", "\127\198\156\185\91\99\80"));
+		TABLE_TableIndirection["extra%0"] = {};
+		if TABLE_TableIndirection["tHrp%0"] then
+			TABLE_TableIndirection["extra%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\255\2", "\190\149\122\172\144\199\107\89")] = TABLE_TableIndirection["tHrp%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\2\10\226\247\234\59\10\255", "\158\82\101\145\158")]['X'];
+			TABLE_TableIndirection["extra%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\122\231", "\36\16\158\98\118")] = TABLE_TableIndirection["tHrp%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\240\25\208\242\76\225\40\235", "\133\160\118\163\155\56\136\71")]['Y'];
+			TABLE_TableIndirection["extra%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\252\184", "\213\150\194\17\146\214\127")] = TABLE_TableIndirection["tHrp%0"][LUAOBFUSACTOR_DECRYPT_STR_0("\43\166\183\221\82\173\173\56", "\86\123\201\196\180\38\196\194")]['Z'];
+		end
+		mandarParaJogador(TABLE_TableIndirection["selectedTarget%0"], LUAOBFUSACTOR_DECRYPT_STR_0("\253\233\208\163", "\207\151\136\185"), TABLE_TableIndirection["extra%0"]);
+	end});
+	TABLE_TableIndirection["AdminMainTab%0"]:Button({[LUAOBFUSACTOR_DECRYPT_STR_0("\156\138\60\142\113", "\17\200\227\72\226\20\24")]=LUAOBFUSACTOR_DECRYPT_STR_0("\131\78\23\195\200\227\175\183\133\79\17\214\192\253\166", "\159\208\33\123\183\169\145\143"),[LUAOBFUSACTOR_DECRYPT_STR_0("\209\91\52\58\240\91\59\61", "\86\146\58\88")]=function()
+		if not TABLE_TableIndirection["selectedTarget%0"] then
+			TABLE_TableIndirection["WindUI%0"]:Notify({[LUAOBFUSACTOR_DECRYPT_STR_0("\108\214\254\204\171", "\154\56\191\138\160\206\137\86")]=LUAOBFUSACTOR_DECRYPT_STR_0("\167\93\248\142\114", "\172\230\57\149\231\28\90\225"),[LUAOBFUSACTOR_DECRYPT_STR_0("\33\165\136\198\45\213\22", "\187\98\202\230\178\72")]=LUAOBFUSACTOR_DECRYPT_STR_0("\4\242\167\63\70\41\224\228\37\71\97\224\168\38\69\97\241\182\57\71\36\232\182\63\11", "\42\65\129\196\80"),[LUAOBFUSACTOR_DECRYPT_STR_0("\43\73\82\212", "\142\98\42\61\186\119\103\98")]="x",[LUAOBFUSACTOR_DECRYPT_STR_0("\28\170\16\9\44\182\13\6", "\104\88\223\98")]=(1489 - (998 + 488))});
+			return;
+		end
+		mandarParaJogador(TABLE_TableIndirection["selectedTarget%0"], LUAOBFUSACTOR_DECRYPT_STR_0("\81\249\232\207\11\225", "\141\36\151\130\174\98"));
+	end});
+	TABLE_TableIndirection["AdminMainTab%0"]:Button({[LUAOBFUSACTOR_DECRYPT_STR_0("\176\115\214\1\129", "\109\228\26\162")]=LUAOBFUSACTOR_DECRYPT_STR_0("\115\228\233\121\242\166\22\206\244\116\236\175", "\134\62\133\157\24\128"),[LUAOBFUSACTOR_DECRYPT_STR_0("\36\164\22\213\45\176\213\12", "\182\103\197\122\185\79\209")]=function()
+		if not TABLE_TableIndirection["selectedTarget%0"] then
+			TABLE_TableIndirection["WindUI%0"]:Notify({[LUAOBFUSACTOR_DECRYPT_STR_0("\199\142\245\123\5", "\40\147\231\129\23\96")]=LUAOBFUSACTOR_DECRYPT_STR_0("\84\252\129\76\181", "\188\21\152\236\37\219\204"),[LUAOBFUSACTOR_DECRYPT_STR_0("\99\230\57\24\69\231\35", "\108\32\137\87")]=LUAOBFUSACTOR_DECRYPT_STR_0("\143\251\3\169\35\241\74\25\191\229\64\167\35\239\68\25\186\250\9\171\42\240\89\86\235", "\57\202\136\96\198\79\153\43"),[LUAOBFUSACTOR_DECRYPT_STR_0("\130\32\165\169", "\152\203\67\202\199\237\199")]="x",[LUAOBFUSACTOR_DECRYPT_STR_0("\222\86\178\14\11\124\118\232", "\134\154\35\192\111\127\21\25")]=3});
+			return;
+		end
+		mandarParaJogador(TABLE_TableIndirection["selectedTarget%0"], LUAOBFUSACTOR_DECRYPT_STR_0("\179\47\5\6", "\178\216\70\105\106\64"));
+	end});
+end
