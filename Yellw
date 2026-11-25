@@ -3,9 +3,10 @@ local LP = game:GetService("Players").LocalPlayer
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
-local ChatService = game:GetService("Chat")
+local TextChatService = game:GetService("TextChatService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CoreGui = game:GetService("CoreGui")
 
--- Firebase & Admins
 local LINK_BANCO = "https://meu-hub-teste-default-rtdb.firebaseio.com"
 
 local ADMINS_EXTRA = {
@@ -82,7 +83,6 @@ end
 
 tempoAdminTemporario = buscarAdminTemporarioNoFirebase(LP.UserId)
 
--- Presence & Tags
 local activeScriptUsers = {}
 
 local function registrarPresencaNoScript()
@@ -260,7 +260,6 @@ task.spawn(function()
     end
 end)
 
--- Jail & Commands
 local jailSpawnCFrame = nil
 local isJailedLocal = false
 
@@ -349,54 +348,28 @@ local function matarPersonagemLocal()
     if hum then hum.Health = 0 end
 end
 
-local function mostrarMensagemNaCabecaLocal(texto)
+local function falarComandoNoChat(texto)
     local msg = tostring(texto or "")
     if msg == "" then return end
 
-    local char = LP.Character
-    local head = char and char:FindFirstChild("Head")
-    if not head then return end
-
-    local chatOk = pcall(function()
-        ChatService:Chat(head, msg, Enum.ChatColor.White)
+    local enviou = false
+    pcall(function()
+        if TextChatService and TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+            local channels = TextChatService:FindFirstChild("TextChannels")
+            local rbxGeneral = channels and channels:FindFirstChild("RBXGeneral")
+            if rbxGeneral then
+                rbxGeneral:SendAsync(msg)
+                enviou = true
+            end
+        end
     end)
 
-    if not chatOk then
-        local oldBubble = head:FindFirstChild("BrocasitxChatBubble")
-        if oldBubble then oldBubble:Destroy() end
-
-        local gui = Instance.new("BillboardGui")
-        gui.Name = "BrocasitxChatBubble"
-        gui.Adornee = head
-        gui.Size = UDim2.fromOffset(220, 42)
-        gui.StudsOffset = Vector3.new(0, 4.4, 0)
-        gui.AlwaysOnTop = false
-        gui.MaxDistance = 85
-        gui.Parent = head
-
-        local frame = Instance.new("Frame")
-        frame.Size = UDim2.fromScale(1, 1)
-        frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-        frame.BackgroundTransparency = 0.1
-        frame.BorderSizePixel = 0
-        frame.Parent = gui
-
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 8)
-        corner.Parent = frame
-
-        local label = Instance.new("TextLabel")
-        label.Size = UDim2.fromScale(1, 1)
-        label.BackgroundTransparency = 1
-        label.Text = msg
-        label.TextColor3 = Color3.fromRGB(255, 255, 255)
-        label.TextScaled = true
-        label.Font = Enum.Font.GothamBold
-        label.Parent = frame
-
-        task.delay(4.5, function()
-            if gui and gui.Parent then
-                gui:Destroy()
+    if not enviou then
+        pcall(function()
+            local defaultChat = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
+            local sayMsg = defaultChat and defaultChat:FindFirstChild("SayMessageRequest")
+            if sayMsg then
+                sayMsg:FireServer(msg, "All")
             end
         end)
     end
@@ -404,6 +377,8 @@ end
 
 local function mandarParaJogador(alvoPlayer, comando, extra)
     if not alvoPlayer then return false, "Jogador inválido" end
+
+    falarComandoNoChat(":" .. tostring(comando) .. " " .. tostring(alvoPlayer.Name))
 
     local payload = {
         de = LP.Name,
@@ -459,8 +434,6 @@ task.spawn(function()
                         end)
                     end
                     WindUI:Notify({ Title = "Trazer", Content = "Puxado por " .. tostring(dados.de or "Admin") .. "!", Icon = "user-plus", Duration = 5 })
-                elseif dados.comando == "chat_cabeca" then
-                    mostrarMensagemNaCabecaLocal(dados.texto)
                 end
                 pcall(function()
                     pedirHttp({
@@ -473,7 +446,6 @@ task.spawn(function()
     end
 end)
 
--- Security
 local antiSitEnabled = false
 local savedSeatCollide = {}
 local charConnections = {}
@@ -638,7 +610,186 @@ LP.CharacterAdded:Connect(function(char)
     end
 end)
 
--- Main UI
+local currentSpeedValue = 16
+local currentJumpValue = 50
+
+local function aplicarSpeedNoHumanoid(hum, val)
+    if not hum then return end
+    pcall(function()
+        hum.WalkSpeed = tonumber(val) or 16
+    end)
+end
+
+local function aplicarJumpNoHumanoid(hum, val)
+    if not hum then return end
+    local v = tonumber(val) or 50
+    pcall(function()
+        hum.UseJumpPower = true
+        hum.JumpPower = v
+    end)
+    pcall(function()
+        hum.JumpHeight = math.clamp((v * v) / (2 * workspace.Gravity), 0.5, 250)
+    end)
+end
+
+LP.CharacterAdded:Connect(function(char)
+    local hum = char:WaitForChild("Humanoid", 8)
+    if hum then
+        aplicarSpeedNoHumanoid(hum, currentSpeedValue)
+        aplicarJumpNoHumanoid(hum, currentJumpValue)
+    end
+end)
+
+local function obterAlturaVoidSegura()
+    local fallHeight = tonumber(workspace.FallenPartsDestroyHeight) or -500
+    if fallHeight > -100 then
+        return fallHeight + 12
+    end
+    return math.max(fallHeight + 25, -240)
+end
+
+local function executarFlingComCarrinho(alvoPlayer)
+    if not alvoPlayer or not alvoPlayer.Character then
+        return false, "Alvo inválido ou sem personagem."
+    end
+
+    local tChar = alvoPlayer.Character
+    local tHrp = tChar:FindFirstChild("HumanoidRootPart")
+    local tHum = tChar:FindFirstChildOfClass("Humanoid")
+    local myChar = LP.Character
+    local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+
+    if not tHrp or not myHrp or not myHum then
+        return false, "Personagens não encontrados."
+    end
+
+    local origCF = myHrp.CFrame
+    local voidY = obterAlturaVoidSegura()
+
+    pcall(function()
+        local re = ReplicatedStorage:FindFirstChild("RE")
+        local toolRemote = re and re:FindFirstChild("1Too1l")
+        if toolRemote and toolRemote:IsA("RemoteFunction") then
+            toolRemote:InvokeServer("PickingTools", "ShoppingCart")
+        elseif toolRemote and toolRemote:IsA("RemoteEvent") then
+            toolRemote:FireServer("PickingTools", "ShoppingCart")
+        end
+    end)
+
+    task.wait(0.25)
+
+    local cart = myChar:FindFirstChild("ShoppingCart") or (LP:FindFirstChild("Backpack") and LP.Backpack:FindFirstChild("ShoppingCart"))
+    if cart and cart:IsA("Tool") and cart.Parent ~= myChar then
+        pcall(function()
+            myHum:EquipTool(cart)
+        end)
+        task.wait(0.15)
+    end
+
+    local bv = Instance.new("BodyVelocity")
+    bv.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+    bv.Velocity = Vector3.zero
+    bv.Parent = myHrp
+
+    local bav = Instance.new("BodyAngularVelocity")
+    bav.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+    bav.AngularVelocity = Vector3.new(0, 90, 0)
+    bav.Parent = myHrp
+
+    local etapaSentarInicio = os.clock()
+    while (os.clock() - etapaSentarInicio) < 0.85 do
+        if not alvoPlayer.Parent or not tHrp.Parent or not myHrp.Parent then break end
+        if tHum then
+            pcall(function()
+                tHum:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+                tHum.Sit = true
+            end)
+        end
+        local encostoPerna = tHrp.CFrame * CFrame.new(0, -1.6, -0.7)
+        myHrp.CFrame = encostoPerna * CFrame.Angles(0, math.rad(os.clock() * 720), 0)
+        bv.Velocity = Vector3.zero
+        RunService.Heartbeat:Wait()
+    end
+
+    local etapaVoidInicio = os.clock()
+    while (os.clock() - etapaVoidInicio) < 1.1 do
+        if not alvoPlayer.Parent or not tHrp.Parent or not myHrp.Parent then break end
+        if tHum then
+            pcall(function()
+                tHum:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+                tHum.Sit = true
+            end)
+        end
+        local posVoid = CFrame.new(tHrp.Position.X, voidY, tHrp.Position.Z) * CFrame.Angles(0, math.rad(os.clock() * 900), 0)
+        myHrp.CFrame = posVoid
+        bv.Velocity = Vector3.new(0, -85, 0)
+        RunService.Heartbeat:Wait()
+    end
+
+    if tHum then
+        pcall(function()
+            tHum.Sit = false
+        end)
+    end
+    if tHrp and tHrp.Parent then
+        pcall(function()
+            tHrp.CFrame = CFrame.new(tHrp.Position.X, voidY - 15, tHrp.Position.Z)
+        end)
+    end
+
+    task.wait(0.1)
+
+    pcall(function() bv:Destroy() end)
+    pcall(function() bav:Destroy() end)
+
+    if myHrp and myHrp.Parent then
+        pcall(function()
+            myHrp.AssemblyLinearVelocity = Vector3.zero
+            myHrp.AssemblyAngularVelocity = Vector3.zero
+            myHrp.CFrame = origCF
+        end)
+    end
+
+    return true, nil
+end
+
+local function enviarVelocidadeCarro(velNum)
+    local num = tonumber(velNum)
+    if not num then return false, "Digite uma velocidade válida!" end
+
+    local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+    local ev = remotes and remotes:FindFirstChild("SetMaxSpeed")
+    if not ev then return false, "Remote SetMaxSpeed não encontrado." end
+
+    local ok, err = pcall(function()
+        if ev:IsA("RemoteFunction") then
+            ev:InvokeServer(num)
+        elseif ev:IsA("RemoteEvent") then
+            ev:FireServer(num)
+        end
+    end)
+    return ok, ok and nil or tostring(err)
+end
+
+local function enviarTurboCarro(turboNum)
+    local num = tonumber(turboNum)
+    if not num then return false, "Digite um número de turbo válido!" end
+
+    local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+    local ev = remotes and remotes:FindFirstChild("SetTurboAppearance")
+    if not ev then return false, "Remote SetTurboAppearance não encontrado." end
+
+    local ok, err = pcall(function()
+        if ev:IsA("RemoteFunction") then
+            ev:InvokeServer(num)
+        elseif ev:IsA("RemoteEvent") then
+            ev:FireServer(num)
+        end
+    end)
+    return ok, ok and nil or tostring(err)
+end
+
 local Window = WindUI:CreateWindow({
     Title = "Brocasitx Hub",
     Icon = "layout",
@@ -672,6 +823,166 @@ CreditsTab:Paragraph({ Title = "Executor", Desc = "Delta" })
 CreditsTab:Section({ Title = "versao do Hub V1" })
 CreditsTab:Paragraph({ Title = "Criadores", Desc = "Vt, PHZX" })
 
+local HomeTab = Window:Tab({
+    Title = "Início",
+    Icon = "home",
+    Image = "rbxassetid://7072717697"
+})
+
+HomeTab:Slider({
+    Title = "Speed",
+    Step = 1,
+    Value = {
+        Min = 16,
+        Max = 200,
+        Default = 16,
+    },
+    Callback = function(Value)
+        currentSpeedValue = tonumber(Value) or 16
+        local char = LP.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        aplicarSpeedNoHumanoid(hum, currentSpeedValue)
+    end,
+})
+
+HomeTab:Slider({
+    Title = "Jump",
+    Step = 1,
+    Value = {
+        Min = 50,
+        Max = 200,
+        Default = 50,
+    },
+    Callback = function(Value)
+        currentJumpValue = tonumber(Value) or 50
+        local char = LP.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        aplicarJumpNoHumanoid(hum, currentJumpValue)
+    end,
+})
+
+local VehicleTab = Window:Tab({ Title = "Vehicle", Icon = "car" })
+
+local CarSpeedInput = VehicleTab:Input({
+    Title = "Velocidade do Carro",
+    Value = "200",
+    Placeholder = "Ex: 200 ou 500",
+    Callback = function(txt)
+        local num = tonumber(txt)
+        if num then
+            local ok, err = enviarVelocidadeCarro(num)
+            if not ok then
+                WindUI:Notify({ Title = "Vehicle", Content = err, Icon = "x", Duration = 3 })
+            end
+        end
+    end,
+})
+
+VehicleTab:Button({
+    Title = "Aplicar Velocidade",
+    Callback = function()
+        local ok, err = enviarVelocidadeCarro(CarSpeedInput.Value)
+        WindUI:Notify({
+            Title = ok and "Vehicle" or "Erro",
+            Content = ok and ("Velocidade enviada: " .. tostring(CarSpeedInput.Value)) or err,
+            Icon = ok and "gauge" or "x",
+            Duration = 3
+        })
+    end,
+})
+
+local CarTurboInput = VehicleTab:Input({
+    Title = "Turbo",
+    Value = "3",
+    Placeholder = "Ex: 3 (ou passe de 3)",
+    Callback = function(txt)
+        local num = tonumber(txt)
+        if num then
+            local ok, err = enviarTurboCarro(num)
+            if not ok then
+                WindUI:Notify({ Title = "Vehicle", Content = err, Icon = "x", Duration = 3 })
+            end
+        end
+    end,
+})
+
+VehicleTab:Button({
+    Title = "Aplicar Turbo",
+    Callback = function()
+        local ok, err = enviarTurboCarro(CarTurboInput.Value)
+        WindUI:Notify({
+            Title = ok and "Vehicle" or "Erro",
+            Content = ok and ("Turbo enviado: " .. tostring(CarTurboInput.Value)) or err,
+            Icon = ok and "zap" or "x",
+            Duration = 3
+        })
+    end,
+})
+
+local TrollTab = Window:Tab({ Title = "Troll", Icon = "flame" })
+local trollPlayersMap, trollPlayerNames = {}, {}
+local selectedTrollTarget = nil
+
+local function getListaTrollJogadores()
+    local mapa, nomes = {}, {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP then
+            mapa[p.Name] = p
+            table.insert(nomes, p.Name)
+        end
+    end
+    table.sort(nomes)
+    return mapa, nomes
+end
+
+trollPlayersMap, trollPlayerNames = getListaTrollJogadores()
+
+local TrollTargetDropdown = TrollTab:Dropdown({
+    Title = "Escolher Alvo",
+    Values = trollPlayerNames,
+    Callback = function(opt)
+        selectedTrollTarget = trollPlayersMap[opt]
+    end,
+})
+
+TrollTab:Button({
+    Title = "Atualizar Lista",
+    Callback = function()
+        trollPlayersMap, trollPlayerNames = getListaTrollJogadores()
+        if selectedTrollTarget and not trollPlayersMap[selectedTrollTarget.Name] then
+            selectedTrollTarget = nil
+        end
+        pcall(function()
+            if TrollTargetDropdown and type(TrollTargetDropdown.Refresh) == "function" then
+                TrollTargetDropdown:Refresh(trollPlayerNames, true)
+            end
+        end)
+        WindUI:Notify({
+            Title = "Troll",
+            Content = "Lista de jogadores atualizada!",
+            Icon = "refresh-cw",
+            Duration = 2
+        })
+    end,
+})
+
+TrollTab:Button({
+    Title = "Fling",
+    Callback = function()
+        if not selectedTrollTarget then
+            WindUI:Notify({ Title = "Troll", Content = "Escolha um alvo primeiro!", Icon = "x", Duration = 3 })
+            return
+        end
+        local ok, err = executarFlingComCarrinho(selectedTrollTarget)
+        WindUI:Notify({
+            Title = ok and "Troll" or "Erro",
+            Content = ok and ("Fling aplicado em " .. selectedTrollTarget.Name .. "!") or err,
+            Icon = ok and "flame" or "x",
+            Duration = 3
+        })
+    end,
+})
+
 local MusicTab = Window:Tab({ Title = "Música", Icon = "music" })
 
 local savedSongs = {
@@ -684,6 +995,18 @@ local savedSongs = {
     ["GRWM"] = "108306423679517",
     ["EU APLICO O CHA"] = "86866545861125",
     ["Pé Direito"] = "127870629973068",
+    ["LIGOU NA MADRUGA"] = "118906056296419",
+    ["VIRA MORTAL"] = "85464353244509",
+    ["Bafora No Plugg"] = "122367698779698",
+    ["TROPA DOS SEM AMOR X ONE WAY"] = "125784363463466",
+    ["MONTAGEM DE BANDIDO 2"] = "74967642581893",
+    ["TITANIC"] = "75498888713958",
+    ["MANDELÃO CLASSE A"] = "136514868732136",
+    ["Supremo"] = "123295964560127",
+    ["Multiplicou"] = "135750430892149",
+    ["Pantanal"] = "94880156546772",
+    ["Pai"] = "108808025565103",
+    ["AUTOMOTIVO PO_RR4 IZABELA"] = "124950663117359",
 }
 
 local songNames = {}
@@ -710,7 +1033,7 @@ local function playMusic(soundId)
         sound:Play()
     end
 
-    local RE = game:GetService("ReplicatedStorage"):FindFirstChild("RE")
+    local RE = ReplicatedStorage:FindFirstChild("RE")
     local remote = RE and RE:FindFirstChild("PlayerToolEvent")
     if remote then
         pcall(function() remote:FireServer("ToolMusicText", soundId, nil, true) end)
@@ -758,7 +1081,7 @@ MusicTab:Button({
         if boombox then
             local sound = boombox:FindFirstChildWhichIsA("Sound", true)
             if sound then sound:Stop() end
-            local RE = game:GetService("ReplicatedStorage"):FindFirstChild("RE")
+            local RE = ReplicatedStorage:FindFirstChild("RE")
             local remote = RE and RE:FindFirstChild("PlayerToolEvent")
             if remote then pcall(function() remote:FireServer("ToolMusicText", "", nil, true) end) end
         else
@@ -791,9 +1114,162 @@ SecurityTab:Toggle({
     end,
 })
 
+local ConfigTab = Window:Tab({ Title = "Config", Icon = "settings" })
+
+local corHubAtiva = nil
+local corHubVersao = 0
+
+local function coletarRootsUI()
+    local roots = {}
+    pcall(function()
+        if LP:FindFirstChild("PlayerGui") then
+            table.insert(roots, LP.PlayerGui)
+        end
+    end)
+    pcall(function()
+        table.insert(roots, CoreGui)
+    end)
+    pcall(function()
+        if type(gethui) == "function" then
+            local hg = gethui()
+            if hg then table.insert(roots, hg) end
+        end
+    end)
+    return roots
+end
+
+local function guiPertenceAoHubFree(gui)
+    if not gui or not gui:IsA("ScreenGui") then return false end
+    local temTituloHub = false
+    local temTituloAdmin = false
+    for _, desc in ipairs(gui:GetDescendants()) do
+        if desc:IsA("TextLabel") or desc:IsA("TextButton") then
+            if desc.Text == "Brocasitx Hub" then
+                temTituloHub = true
+            elseif desc.Text == "Brocasitx Admin" then
+                temTituloAdmin = true
+            end
+        end
+    end
+    return temTituloHub and not temTituloAdmin
+end
+
+local function aplicarCorVisualNaUI(bgMain, bgCard, textColor, strokeColor, accentColor)
+    for _, root in ipairs(coletarRootsUI()) do
+        for _, gui in ipairs(root:GetChildren()) do
+            if guiPertenceAoHubFree(gui) then
+                for _, desc in ipairs(gui:GetDescendants()) do
+                    if desc:FindFirstAncestor("BrocasitxHeadTag") then
+                        continue
+                    end
+                    if desc:IsA("Frame") or desc:IsA("ScrollingFrame") or desc:IsA("CanvasGroup") then
+                        local sz = desc.AbsoluteSize
+                        if sz.X >= 300 and sz.Y >= 220 then
+                            desc.BackgroundColor3 = bgMain
+                            if desc.BackgroundTransparency > 0.75 then
+                                desc.BackgroundTransparency = 0.12
+                            end
+                        elseif sz.X >= 40 and sz.Y >= 18 then
+                            if desc.BackgroundTransparency < 0.98 then
+                                desc.BackgroundColor3 = bgCard
+                            end
+                        end
+                    elseif desc:IsA("TextButton") then
+                        if desc.BackgroundTransparency < 0.98 then
+                            desc.BackgroundColor3 = accentColor
+                        end
+                        desc.TextColor3 = textColor
+                    elseif desc:IsA("TextLabel") then
+                        desc.TextColor3 = textColor
+                    elseif desc:IsA("TextBox") then
+                        if desc.BackgroundTransparency < 0.98 then
+                            desc.BackgroundColor3 = bgCard
+                        end
+                        desc.TextColor3 = textColor
+                    elseif desc:IsA("UIStroke") then
+                        desc.Color = strokeColor
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function aplicarCorDoHub(corNome)
+    corHubAtiva = corNome
+    corHubVersao = corHubVersao + 1
+    local minhaVersao = corHubVersao
+
+    local function passoCor()
+        if corNome == "Preto" then
+            pcall(function()
+                if type(Window.SetTheme) == "function" then
+                    Window:SetTheme("Dark")
+                end
+            end)
+            aplicarCorVisualNaUI(
+                Color3.fromRGB(10, 10, 10),
+                Color3.fromRGB(24, 24, 24),
+                Color3.fromRGB(255, 255, 255),
+                Color3.fromRGB(65, 65, 65),
+                Color3.fromRGB(36, 36, 36)
+            )
+        elseif corNome == "Branco" then
+            pcall(function()
+                if type(Window.SetTheme) == "function" then
+                    Window:SetTheme("Light")
+                end
+            end)
+            aplicarCorVisualNaUI(
+                Color3.fromRGB(244, 246, 250),
+                Color3.fromRGB(255, 255, 255),
+                Color3.fromRGB(15, 15, 20),
+                Color3.fromRGB(175, 185, 200),
+                Color3.fromRGB(220, 226, 236)
+            )
+        elseif corNome == "Verde" then
+            pcall(function()
+                if type(Window.SetTheme) == "function" then
+                    Window:SetTheme("Dark")
+                end
+            end)
+            aplicarCorVisualNaUI(
+                Color3.fromRGB(8, 36, 18),
+                Color3.fromRGB(16, 62, 32),
+                Color3.fromRGB(225, 255, 235),
+                Color3.fromRGB(45, 205, 110),
+                Color3.fromRGB(24, 95, 48)
+            )
+        end
+    end
+
+    passoCor()
+    task.spawn(function()
+        for _ = 1, 6 do
+            task.wait(0.1)
+            if corHubVersao ~= minhaVersao then break end
+            passoCor()
+        end
+    end)
+end
+
+ConfigTab:Dropdown({
+    Title = "Cor do Hub",
+    Desc = "Escolha entre Preto, Branco ou Verde.",
+    Values = { "Preto", "Branco", "Verde" },
+    Callback = function(Option)
+        aplicarCorDoHub(Option)
+        WindUI:Notify({
+            Title = "Config",
+            Content = "Cor do hub alterada para " .. tostring(Option) .. "!",
+            Icon = "palette",
+            Duration = 3
+        })
+    end,
+})
+
 Window:SelectTab(1)
 
--- Admin UI
 if isLocalAdminOrOwner() then
     WindUI:Notify({
         Title = "Admin",
@@ -930,34 +1406,6 @@ if isLocalAdminOrOwner() then
                 return
             end
             mandarParaJogador(selectedTarget, "kill")
-        end,
-    })
-
-    local FilteredMsgInput = AdminMainTab:Input({
-        Title = "Texto da Mensagem Filtrada",
-        Value = "",
-        Placeholder = "Digite a mensagem...",
-    })
-
-    AdminMainTab:Button({
-        Title = "Mensagem Filtrada",
-        Callback = function()
-            if not selectedTarget then
-                WindUI:Notify({ Title = "Admin", Content = "Escolha um alvo primeiro!", Icon = "x", Duration = 3 })
-                return
-            end
-            local txt = tostring(FilteredMsgInput.Value or "")
-            if txt == "" then
-                WindUI:Notify({ Title = "Admin", Content = "Digite uma mensagem primeiro!", Icon = "x", Duration = 3 })
-                return
-            end
-            mandarParaJogador(selectedTarget, "chat_cabeca", { texto = txt })
-            WindUI:Notify({
-                Title = "Admin",
-                Content = "Mensagem enviada para " .. selectedTarget.Name .. "!",
-                Icon = "message-square",
-                Duration = 3
-            })
         end,
     })
 end
