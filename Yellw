@@ -754,6 +754,119 @@ local function executarFlingComCarrinho(alvoPlayer)
     return true, nil
 end
 
+local babyFollowToken = 0
+local babyOscSpeed = 6.5
+local babyLocalEscolhido = "Nas Costas"
+
+local function buscarFollowCharacterManual()
+    local char = LP.Character or workspace:FindFirstChild(LP.Name)
+    if char then
+        local fc = char:FindFirstChild("FollowCharacter")
+        if fc then return fc end
+    end
+    return workspace:FindFirstChild("FollowCharacter")
+end
+
+local function posicionarObjetoEmCFrame(obj, destino)
+    if not obj or not obj.Parent or not destino then return end
+    pcall(function()
+        if obj:IsA("Model") then
+            for _, p in ipairs(obj:GetDescendants()) do
+                if p:IsA("BasePart") then
+                    p.AssemblyLinearVelocity = Vector3.zero
+                    p.AssemblyAngularVelocity = Vector3.zero
+                end
+            end
+            obj:PivotTo(destino)
+        elseif obj:IsA("BasePart") then
+            obj.AssemblyLinearVelocity = Vector3.zero
+            obj.AssemblyAngularVelocity = Vector3.zero
+            obj.CFrame = destino
+        elseif obj:IsA("Humanoid") and obj.Parent then
+            for _, p in ipairs(obj.Parent:GetDescendants()) do
+                if p:IsA("BasePart") then
+                    p.AssemblyLinearVelocity = Vector3.zero
+                    p.AssemblyAngularVelocity = Vector3.zero
+                end
+            end
+            obj.Parent:PivotTo(destino)
+        end
+    end)
+end
+
+local function moverBabyOscilando(obj, targetChar)
+    if not obj or not obj.Parent or not targetChar then return end
+    local onda = math.sin(os.clock() * babyOscSpeed)
+    local destino = nil
+
+    if babyLocalEscolhido == "Na Cara" then
+        local head = targetChar:FindFirstChild("Head")
+        local ref = head or targetChar:FindFirstChild("HumanoidRootPart")
+        if not ref or not ref.Parent then return end
+
+        local offsetZ = -1.65 - (onda * 0.75) -- na frente da cara/cabeça indo e voltando
+        local offsetY = head and (-0.15 + (onda * 0.12)) or (1.35 + (onda * 0.12))
+        destino = ref.CFrame * CFrame.new(0, offsetY, offsetZ) * CFrame.Angles(0, math.pi, 0)
+    else
+        local hrp = targetChar:FindFirstChild("HumanoidRootPart") or targetChar:FindFirstChild("UpperTorso") or targetChar:FindFirstChild("Torso")
+        if not hrp or not hrp.Parent then return end
+
+        local offsetZ = 1.65 + (onda * 0.85) -- atrás nas costas indo e voltando
+        local offsetY = -0.55 + (onda * 0.12) -- um pouco pra baixo
+        destino = hrp.CFrame * CFrame.new(0, offsetY, offsetZ)
+    end
+
+    posicionarObjetoEmCFrame(obj, destino)
+end
+
+local function enviarBabyParaAlvo(alvoPlayer, _nomeBaby)
+    if not alvoPlayer or not alvoPlayer.Character then
+        return false, "Escolha um alvo válido primeiro!"
+    end
+
+    local tChar = alvoPlayer.Character
+    local tRef = tChar:FindFirstChild("HumanoidRootPart") or tChar:FindFirstChild("Head")
+    if not tRef then
+        return false, "Personagem do alvo não encontrado."
+    end
+
+    local fcInicial = buscarFollowCharacterManual()
+    if not fcInicial or not fcInicial.Parent then
+        return false, "Spawne o baby manualmente primeiro!"
+    end
+
+    babyFollowToken = babyFollowToken + 1
+    local meuToken = babyFollowToken
+
+    task.spawn(function()
+        while babyFollowToken == meuToken do
+            if not alvoPlayer.Parent or not alvoPlayer.Character then break end
+
+            local fc = buscarFollowCharacterManual()
+            if not fc or not fc.Parent then break end
+
+            moverBabyOscilando(fc, alvoPlayer.Character)
+            RunService.Heartbeat:Wait()
+        end
+    end)
+
+    return true, nil
+end
+
+local function removerBabyDoAlvo()
+    babyFollowToken = babyFollowToken + 1
+    local fc = buscarFollowCharacterManual()
+    if fc and fc.Parent then
+        local myChar = LP.Character or workspace:FindFirstChild(LP.Name)
+        local myHrp = myChar and (myChar:FindFirstChild("HumanoidRootPart") or myChar:FindFirstChild("Head"))
+        if myHrp and myHrp.Parent then
+            posicionarObjetoEmCFrame(fc, myHrp.CFrame * CFrame.new(0, 0, -2.5))
+        end
+        return true, nil
+    end
+    return false, "Nenhum baby encontrado no momento."
+end
+
 local function enviarVelocidadeCarro(velNum)
     local num = tonumber(velNum)
     if not num then return false, "Digite uma velocidade válida!" end
@@ -858,6 +971,195 @@ HomeTab:Slider({
         local char = LP.Character
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         aplicarJumpNoHumanoid(hum, currentJumpValue)
+    end,
+})
+
+local homePlayersMap, homePlayerNames = {}, {}
+local selectedHomeTarget = nil
+local viewingHomeTarget = false
+local ultimoSnapshotListaHome = ""
+
+local function montarListaHome()
+    local mapa, nomes = {}, {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP then
+            mapa[p.Name] = p
+            table.insert(nomes, p.Name)
+        end
+    end
+    table.sort(nomes)
+    return mapa, nomes
+end
+
+local HomeTargetDropdown = HomeTab:Dropdown({
+    Title = "Escolher Alvo",
+    Values = {},
+    Callback = function(opt)
+        selectedHomeTarget = homePlayersMap[opt]
+    end,
+})
+
+local function atualizarListaHome(forcarNotificacao)
+    homePlayersMap, homePlayerNames = montarListaHome()
+    if selectedHomeTarget and not homePlayersMap[selectedHomeTarget.Name] then
+        selectedHomeTarget = nil
+        if viewingHomeTarget then
+            viewingHomeTarget = false
+            local cam = workspace.CurrentCamera
+            local myChar = LP.Character
+            local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+            if cam and myHum then
+                pcall(function()
+                    cam.CameraType = Enum.CameraType.Custom
+                    cam.CameraSubject = myHum
+                end)
+            end
+        end
+    end
+
+    local assinatura = table.concat(homePlayerNames, "|")
+    if assinatura ~= ultimoSnapshotListaHome or forcarNotificacao then
+        ultimoSnapshotListaHome = assinatura
+        pcall(function()
+            if HomeTargetDropdown and type(HomeTargetDropdown.Refresh) == "function" then
+                HomeTargetDropdown:Refresh(homePlayerNames, true)
+            end
+        end)
+    end
+
+    if forcarNotificacao then
+        WindUI:Notify({
+            Title = "Início",
+            Content = "Lista de jogadores atualizada!",
+            Icon = "refresh-cw",
+            Duration = 2
+        })
+    end
+end
+
+atualizarListaHome(false)
+
+Players.PlayerAdded:Connect(function()
+    task.wait(0.2)
+    atualizarListaHome(false)
+end)
+
+Players.PlayerRemoving:Connect(function()
+    task.wait(0.2)
+    atualizarListaHome(false)
+end)
+
+task.spawn(function()
+    while task.wait(2) do
+        atualizarListaHome(false)
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if not viewingHomeTarget then return end
+    local cam = workspace.CurrentCamera
+    if not cam then return end
+
+    if selectedHomeTarget and selectedHomeTarget.Parent and selectedHomeTarget.Character then
+        local tHum = selectedHomeTarget.Character:FindFirstChildOfClass("Humanoid")
+        if tHum then
+            pcall(function()
+                cam.CameraType = Enum.CameraType.Custom
+                cam.CameraSubject = tHum
+            end)
+        end
+    else
+        viewingHomeTarget = false
+        local myChar = LP.Character
+        local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+        if myHum then
+            pcall(function()
+                cam.CameraType = Enum.CameraType.Custom
+                cam.CameraSubject = myHum
+            end)
+        end
+    end
+end)
+
+HomeTab:Button({
+    Title = "Atualizar Lista",
+    Callback = function()
+        atualizarListaHome(true)
+    end,
+})
+
+HomeTab:Button({
+    Title = "View",
+    Callback = function()
+        local cam = workspace.CurrentCamera
+        if viewingHomeTarget then
+            viewingHomeTarget = false
+            local myChar = LP.Character
+            local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+            if cam and myHum then
+                pcall(function()
+                    cam.CameraType = Enum.CameraType.Custom
+                    cam.CameraSubject = myHum
+                end)
+            end
+            WindUI:Notify({
+                Title = "View",
+                Content = "Câmera voltou para você!",
+                Icon = "eye-off",
+                Duration = 3
+            })
+            return
+        end
+
+        if not selectedHomeTarget or not selectedHomeTarget.Character then
+            WindUI:Notify({ Title = "View", Content = "Escolha um alvo válido primeiro!", Icon = "x", Duration = 3 })
+            return
+        end
+
+        local tHum = selectedHomeTarget.Character:FindFirstChildOfClass("Humanoid")
+        if cam and tHum then
+            viewingHomeTarget = true
+            pcall(function()
+                cam.CameraType = Enum.CameraType.Custom
+                cam.CameraSubject = tHum
+            end)
+            WindUI:Notify({
+                Title = "View",
+                Content = "Espectando " .. selectedHomeTarget.Name .. "!",
+                Icon = "eye",
+                Duration = 3
+            })
+        end
+    end,
+})
+
+HomeTab:Button({
+    Title = "Teleportar pro Jogador",
+    Callback = function()
+        if not selectedHomeTarget or not selectedHomeTarget.Character then
+            WindUI:Notify({ Title = "Teleportar", Content = "Escolha um alvo válido primeiro!", Icon = "x", Duration = 3 })
+            return
+        end
+
+        local tHrp = selectedHomeTarget.Character:FindFirstChild("HumanoidRootPart")
+        local myChar = LP.Character
+        local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+
+        if tHrp and myHrp then
+            pcall(function()
+                myHrp.AssemblyLinearVelocity = Vector3.zero
+                myHrp.AssemblyAngularVelocity = Vector3.zero
+                myHrp.CFrame = tHrp.CFrame * CFrame.new(0, 0, -3.5)
+            end)
+            WindUI:Notify({
+                Title = "Teleportar",
+                Content = "Teleportado para " .. selectedHomeTarget.Name .. "!",
+                Icon = "navigation",
+                Duration = 3
+            })
+        else
+            WindUI:Notify({ Title = "Teleportar", Content = "Alvo sem posição disponível.", Icon = "x", Duration = 3 })
+        end
     end,
 })
 
@@ -980,6 +1282,112 @@ TrollTab:Button({
             Icon = ok and "flame" or "x",
             Duration = 3
         })
+    end,
+})
+
+local babyPlayersMap, babyPlayerNames = {}, {}
+local selectedBabyTarget = nil
+
+local function getListaBabyJogadores()
+    local mapa, nomes = {}, {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP then
+            mapa[p.Name] = p
+            table.insert(nomes, p.Name)
+        end
+    end
+    table.sort(nomes)
+    return mapa, nomes
+end
+
+babyPlayersMap, babyPlayerNames = getListaBabyJogadores()
+
+local BabyTargetDropdown = TrollTab:Dropdown({
+    Title = "Escolher Alvo (Baby)",
+    Values = babyPlayerNames,
+    Callback = function(opt)
+        selectedBabyTarget = babyPlayersMap[opt]
+    end,
+})
+
+TrollTab:Button({
+    Title = "Atualizar Lista",
+    Callback = function()
+        babyPlayersMap, babyPlayerNames = getListaBabyJogadores()
+        if selectedBabyTarget and not babyPlayersMap[selectedBabyTarget.Name] then
+            selectedBabyTarget = nil
+        end
+        pcall(function()
+            if BabyTargetDropdown and type(BabyTargetDropdown.Refresh) == "function" then
+                BabyTargetDropdown:Refresh(babyPlayerNames, true)
+            end
+        end)
+        WindUI:Notify({
+            Title = "Troll",
+            Content = "Lista de alvos do baby atualizada!",
+            Icon = "refresh-cw",
+            Duration = 2
+        })
+    end,
+})
+
+local BabyNameInput = TrollTab:Input({
+    Title = "Nome do Baby",
+    Value = "BabyBoy",
+    Placeholder = "Ex: BabyBoy ou BabyGirl",
+})
+
+TrollTab:Button({
+    Title = "Enviar Baby pro Alvo",
+    Callback = function()
+        local ok, err = enviarBabyParaAlvo(selectedBabyTarget, BabyNameInput.Value)
+        WindUI:Notify({
+            Title = ok and "Troll" or "Erro",
+            Content = ok and ("Baby enviado (" .. tostring(babyLocalEscolhido) .. ") em " .. selectedBabyTarget.Name .. "!") or err,
+            Icon = ok and "baby" or "x",
+            Duration = 3
+        })
+    end,
+})
+
+TrollTab:Button({
+    Title = "Remover Baby",
+    Callback = function()
+        local ok, err = removerBabyDoAlvo()
+        WindUI:Notify({
+            Title = ok and "Troll" or "Erro",
+            Content = ok and "Baby removido do alvo!" or err,
+            Icon = ok and "trash-2" or "x",
+            Duration = 3
+        })
+    end,
+})
+
+TrollTab:Dropdown({
+    Title = "Onde quer o Baby?",
+    Desc = "Escolha entre Nas Costas ou Na Cara.",
+    Values = { "Nas Costas", "Na Cara" },
+    Callback = function(Option)
+        babyLocalEscolhido = tostring(Option)
+        WindUI:Notify({
+            Title = "Baby",
+            Content = "Local do baby definido para: " .. babyLocalEscolhido,
+            Icon = "map-pin",
+            Duration = 2
+        })
+    end,
+})
+
+TrollTab:Slider({
+    Title = "Velocidade do Baby",
+    Step = 0.5,
+    Value = {
+        Min = 1,
+        Max = 60,
+        Default = 6.5,
+    },
+    Callback = function(Value)
+        babyOscSpeed = tonumber(Value) or 6.5
     end,
 })
 
