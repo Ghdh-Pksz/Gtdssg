@@ -3,6 +3,7 @@ local LP = game:GetService("Players").LocalPlayer
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
+local ChatService = game:GetService("Chat")
 
 -- Firebase & Admins
 local LINK_BANCO = "https://meu-hub-teste-default-rtdb.firebaseio.com"
@@ -348,6 +349,59 @@ local function matarPersonagemLocal()
     if hum then hum.Health = 0 end
 end
 
+local function mostrarMensagemNaCabecaLocal(texto)
+    local msg = tostring(texto or "")
+    if msg == "" then return end
+
+    local char = LP.Character
+    local head = char and char:FindFirstChild("Head")
+    if not head then return end
+
+    local chatOk = pcall(function()
+        ChatService:Chat(head, msg, Enum.ChatColor.White)
+    end)
+
+    if not chatOk then
+        local oldBubble = head:FindFirstChild("BrocasitxChatBubble")
+        if oldBubble then oldBubble:Destroy() end
+
+        local gui = Instance.new("BillboardGui")
+        gui.Name = "BrocasitxChatBubble"
+        gui.Adornee = head
+        gui.Size = UDim2.fromOffset(220, 42)
+        gui.StudsOffset = Vector3.new(0, 4.4, 0)
+        gui.AlwaysOnTop = false
+        gui.MaxDistance = 85
+        gui.Parent = head
+
+        local frame = Instance.new("Frame")
+        frame.Size = UDim2.fromScale(1, 1)
+        frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+        frame.BackgroundTransparency = 0.1
+        frame.BorderSizePixel = 0
+        frame.Parent = gui
+
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 8)
+        corner.Parent = frame
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.fromScale(1, 1)
+        label.BackgroundTransparency = 1
+        label.Text = msg
+        label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        label.TextScaled = true
+        label.Font = Enum.Font.GothamBold
+        label.Parent = frame
+
+        task.delay(4.5, function()
+            if gui and gui.Parent then
+                gui:Destroy()
+            end
+        end)
+    end
+end
+
 local function mandarParaJogador(alvoPlayer, comando, extra)
     if not alvoPlayer then return false, "Jogador inválido" end
 
@@ -405,6 +459,8 @@ task.spawn(function()
                         end)
                     end
                     WindUI:Notify({ Title = "Trazer", Content = "Puxado por " .. tostring(dados.de or "Admin") .. "!", Icon = "user-plus", Duration = 5 })
+                elseif dados.comando == "chat_cabeca" then
+                    mostrarMensagemNaCabecaLocal(dados.texto)
                 end
                 pcall(function()
                     pedirHttp({
@@ -419,17 +475,166 @@ end)
 
 -- Security
 local antiSitEnabled = false
+local savedSeatCollide = {}
+local charConnections = {}
 
-RunService.Heartbeat:Connect(function()
-    if not antiSitEnabled then return end
+local function desativarSeat(seat)
+    if not seat or not (seat:IsA("Seat") or seat:IsA("VehicleSeat")) then return end
+    if savedSeatCollide[seat] == nil then
+        savedSeatCollide[seat] = seat.CanCollide
+    end
+    pcall(function() seat.CanCollide = false end)
+end
+
+local function bloquearSentarNoHumanoid(hum)
+    if not hum then return end
+    pcall(function()
+        hum:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+    end)
+    hum.Sit = false
+    if hum.SeatPart then
+        desativarSeat(hum.SeatPart)
+    end
+end
+
+local function limparSeatWelds(char)
+    if not char then return end
+    for _, child in ipairs(char:GetChildren()) do
+        if child:IsA("Weld") and child.Name == "SeatWeld" then
+            child:Destroy()
+        end
+    end
+end
+
+local function restaurarAssentosAlterados()
+    for seat, origCollide in pairs(savedSeatCollide) do
+        if seat and seat.Parent then
+            pcall(function()
+                seat.CanCollide = origCollide
+            end)
+        end
+        savedSeatCollide[seat] = nil
+    end
+end
+
+local function restaurarEstadoSeatedHumanoid()
     local char = LP.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if hum and hum.Sit then
-        hum.Sit = false
-        hum.Jump = true
-        for _, child in pairs(char:GetChildren()) do
-            if child:IsA("Weld") and child.Name == "SeatWeld" then child:Destroy() end
+    if hum then
+        pcall(function()
+            hum:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+        end)
+    end
+end
+
+local function desconectarPersonagemAntiSit()
+    for _, conn in ipairs(charConnections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    charConnections = {}
+end
+
+local function conectarParteTouchedAntiSit(part)
+    if not part:IsA("BasePart") then return end
+    table.insert(charConnections, part.Touched:Connect(function(hit)
+        if not antiSitEnabled then return end
+        if hit and (hit:IsA("Seat") or hit:IsA("VehicleSeat")) then
+            desativarSeat(hit)
         end
+    end))
+end
+
+local function conectarHumanoidAntiSit(char, hum)
+    if not char or not hum then return end
+    pcall(function()
+        hum:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+    end)
+    table.insert(charConnections, hum.Seated:Connect(function(active, currentSeatPart)
+        if not antiSitEnabled or not active then return end
+        if currentSeatPart then
+            desativarSeat(currentSeatPart)
+        end
+        bloquearSentarNoHumanoid(hum)
+        limparSeatWelds(char)
+    end))
+end
+
+local function ligarAntiSitEmPersonagem(char)
+    desconectarPersonagemAntiSit()
+    if not char then return end
+
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        conectarHumanoidAntiSit(char, hum)
+        if hum.Sit then
+            bloquearSentarNoHumanoid(hum)
+            limparSeatWelds(char)
+        end
+    end
+
+    for _, desc in ipairs(char:GetDescendants()) do
+        if desc:IsA("BasePart") then
+            conectarParteTouchedAntiSit(desc)
+        end
+    end
+
+    table.insert(charConnections, char.DescendantAdded:Connect(function(desc)
+        if not antiSitEnabled then return end
+        if desc:IsA("BasePart") then
+            conectarParteTouchedAntiSit(desc)
+        elseif desc:IsA("Humanoid") then
+            conectarHumanoidAntiSit(char, desc)
+        elseif desc:IsA("Weld") and desc.Name == "SeatWeld" then
+            desc:Destroy()
+            local h = char:FindFirstChildOfClass("Humanoid")
+            bloquearSentarNoHumanoid(h)
+        end
+    end))
+end
+
+local overlapParams = OverlapParams.new()
+overlapParams.FilterType = Enum.RaycastFilterType.Exclude
+
+local function desativarCollideDeAssentosProximos(char)
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    overlapParams.FilterDescendantsInstances = { char }
+
+    local partesProximas = workspace:GetPartBoundsInRadius(hrp.Position, 22, overlapParams)
+    for _, part in ipairs(partesProximas) do
+        if part:IsA("Seat") or part:IsA("VehicleSeat") then
+            desativarSeat(part)
+        end
+    end
+end
+
+local elapsedAntiSit = 0
+RunService.Heartbeat:Connect(function(dt)
+    if not antiSitEnabled then return end
+    elapsedAntiSit = elapsedAntiSit + dt
+    if elapsedAntiSit < 0.12 then return end
+    elapsedAntiSit = 0
+
+    local char = LP.Character
+    if not char then return end
+
+    desativarCollideDeAssentosProximos(char)
+
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        pcall(function()
+            hum:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+        end)
+        if hum.Sit then
+            bloquearSentarNoHumanoid(hum)
+            limparSeatWelds(char)
+        end
+    end
+end)
+
+LP.CharacterAdded:Connect(function(char)
+    if antiSitEnabled then
+        ligarAntiSitEmPersonagem(char)
     end
 end)
 
@@ -565,10 +770,18 @@ MusicTab:Button({
 local SecurityTab = Window:Tab({ Title = "Segurança", Icon = "shield" })
 SecurityTab:Toggle({
     Title = "Anti Sit (Bloqueio Total)",
-    Desc = "Impede que qualquer script ou tool te sente.",
+    Desc = "Bloqueia o estado de sentar e desativa colisão de assentos.",
     Value = false,
     Callback = function(Value)
         antiSitEnabled = Value
+        if Value then
+            ligarAntiSitEmPersonagem(LP.Character)
+            desativarCollideDeAssentosProximos(LP.Character)
+        else
+            desconectarPersonagemAntiSit()
+            restaurarEstadoSeatedHumanoid()
+            restaurarAssentosAlterados()
+        end
         WindUI:Notify({
             Title = "Segurança",
             Content = Value and "Anti Sit BLINDADO ATIVADO." or "Anti Sit DESATIVADO.",
@@ -717,6 +930,34 @@ if isLocalAdminOrOwner() then
                 return
             end
             mandarParaJogador(selectedTarget, "kill")
+        end,
+    })
+
+    local FilteredMsgInput = AdminMainTab:Input({
+        Title = "Texto da Mensagem Filtrada",
+        Value = "",
+        Placeholder = "Digite a mensagem...",
+    })
+
+    AdminMainTab:Button({
+        Title = "Mensagem Filtrada",
+        Callback = function()
+            if not selectedTarget then
+                WindUI:Notify({ Title = "Admin", Content = "Escolha um alvo primeiro!", Icon = "x", Duration = 3 })
+                return
+            end
+            local txt = tostring(FilteredMsgInput.Value or "")
+            if txt == "" then
+                WindUI:Notify({ Title = "Admin", Content = "Digite uma mensagem primeiro!", Icon = "x", Duration = 3 })
+                return
+            end
+            mandarParaJogador(selectedTarget, "chat_cabeca", { texto = txt })
+            WindUI:Notify({
+                Title = "Admin",
+                Content = "Mensagem enviada para " .. selectedTarget.Name .. "!",
+                Icon = "message-square",
+                Duration = 3
+            })
         end,
     })
 end
