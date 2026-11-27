@@ -1,1502 +1,1824 @@
---[[
- .____                  ________ ___.    _____                           __                
- |    |    __ _______   \_____  \\_ |___/ ____\_ __  ______ ____ _____ _/  |_  ___________ 
- |    |   |  |  \__  \   /   |   \| __ \   __\  |  \/  ___// ___\\__  \\   __\/  _ \_  __ \
- |    |___|  |  // __ \_/    |    \ \_\ \  | |  |  /\___ \\  \___ / __ \|  | (  <_> )  | \/
- |_______ \____/(____  /\_______  /___  /__| |____//____  >\___  >____  /__|  \____/|__|   
-         \/          \/         \/    \/                \/     \/     \/                   
-          \_Welcome to LuaObfuscator.com   (Alpha 0.10.9) ~  Much Love, Ferib 
+local REDZ_LIB_URLS = {
+    "https://raw.githubusercontent.com/tlredz/Library/refs/heads/main/V5/Source.lua",
+    "https://raw.githubusercontent.com/tlredz/library/refs/heads/main/redzLibV5.lua",
+    "https://raw.githubusercontent.com/nhat0258/Redz-UI-Library/refs/heads/main/Main.lua",
+}
 
-]]--
+local WIND_UI_URL = "https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"
 
-local TABLE_TableIndirection = {};
-TABLE_TableIndirection["v0%0"] = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))();
-TABLE_TableIndirection["v1%0"] = game:GetService("Players").LocalPlayer;
-TABLE_TableIndirection["v2%0"] = game:GetService("RunService");
-TABLE_TableIndirection["v3%0"] = game:GetService("Players");
-TABLE_TableIndirection["v4%0"] = game:GetService("HttpService");
-TABLE_TableIndirection["v5%0"] = game:GetService("TextChatService");
-TABLE_TableIndirection["v6%0"] = game:GetService("ReplicatedStorage");
-TABLE_TableIndirection["v7%0"] = game:GetService("SoundService");
-TABLE_TableIndirection["v8%0"] = game:GetService("CoreGui");
-TABLE_TableIndirection["v9%0"] = "https://meu-hub-teste-default-rtdb.firebaseio.com";
-TABLE_TableIndirection["v10%0"] = {nivel1atenivel2600_p=true};
-TABLE_TableIndirection["v11%0"] = nil;
-TABLE_TableIndirection["v12%0"] = nil;
-TABLE_TableIndirection["v13%0"] = nil;
-TABLE_TableIndirection["v14%0"] = false;
-local function v15(v120)
-	TABLE_TableIndirection["v121%0"] = (syn and syn.request) or (http and http.request) or request or (fluxus and fluxus.request);
-	return ((type(TABLE_TableIndirection["v121%0"]) == "function") and TABLE_TableIndirection["v121%0"](v120)) or nil;
+local REDZ_BOTAO_ID = "96664377956946"
+
+local function carregarLibHttp(urls)
+    for _, url in ipairs(urls) do
+        local okHttp, body = pcall(function()
+            return game:HttpGet(url)
+        end)
+        if okHttp and type(body) == "string" and #body > 50 and not body:find("404: Not Found") then
+            local okLoad, chunk = pcall(function()
+                return loadstring(body)
+            end)
+            if okLoad and type(chunk) == "function" then
+                local okRun, lib = pcall(chunk)
+                if okRun and type(lib) == "table" then
+                    return lib
+                end
+            end
+        end
+    end
+    return nil
 end
-local function v16(v122)
-	local v123, v124 = pcall(function()
-		return v15({Url=(TABLE_TableIndirection["v9%0"] .. "/adminsTemporarios/" .. tostring(v122) .. ".json"),Method="GET"});
-	end);
-	if (v123 and v124 and v124.Body and (v124.Body ~= "") and (v124.Body ~= "null")) then
-		local v416, v417 = pcall(function()
-			return TABLE_TableIndirection["v4%0"]:JSONDecode(v124.Body);
-		end);
-		if ((3537 == 3537) and ((v416 and (type(v417) == "table") and (type(v417.expiraEm) == "number")) or (4593 <= 2672))) then
-			if ((3837 >= 1570) and (os.time() < v417.expiraEm)) then
-				return v417.expiraEm;
-			end
-		end
-	end
-	return nil;
+
+local redzlib = carregarLibHttp(REDZ_LIB_URLS)
+if not redzlib then
+    warn("[Brocasitx Hub] Falha ao carregar redzlib (HTTP 404 / rede).")
+    return
 end
-local function v17()
-	if ((type(TABLE_TableIndirection["v11%0"]) == "number") or (1168 > 3156)) then
-		if ((os.time() < TABLE_TableIndirection["v11%0"]) or (572 > 4486) or (2950 == 3812)) then
-			return true;
-		else
-			TABLE_TableIndirection["v11%0"] = nil;
-		end
-	end
-	return false;
+
+local LP = game:GetService("Players").LocalPlayer
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local TextChatService = game:GetService("TextChatService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SoundService = game:GetService("SoundService")
+
+local LINK_BANCO = "https://meu-hub-teste-default-rtdb.firebaseio.com"
+
+local ADMINS_EXTRA = {
+    ["nivel1atenivel2600_p"] = true,
+    ["miguelzinho50638"] = true,
+}
+
+local tempoAdminTemporario = nil
+local AdminWinRef = nil
+local AdminUIRef = nil
+local adminExpiradoNotificado = false
+
+local function notificar(titulo, msg, _duracao)
+    pcall(function()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = tostring(titulo or "Brocasitx"),
+            Text = tostring(msg or ""),
+            Duration = tonumber(_duracao) or 3
+        })
+    end)
 end
-local function v18()
-	TABLE_TableIndirection["v125%0"] = string.lower(tostring(TABLE_TableIndirection["v1%0"].Name));
-	TABLE_TableIndirection["v126%0"] = string.lower(tostring(TABLE_TableIndirection["v1%0"].DisplayName));
-	if ((1404 == 1404) and ((TABLE_TableIndirection["v125%0"] == "luccasxtt") or (TABLE_TableIndirection["v126%0"] == "luccasxtt") or TABLE_TableIndirection["v10%0"][TABLE_TableIndirection["v125%0"]] or (TABLE_TableIndirection["v10%0"][TABLE_TableIndirection["v126%0"]] == true))) then
-		return true;
-	end
-	return v17();
+
+local function atualizarDropdownRedz(dropObj, novaLista)
+    if not dropObj then return end
+    local listaSegura = type(novaLista) == "table" and novaLista or {}
+    pcall(function()
+        if type(dropObj.Refresh) == "function" then
+            dropObj:Refresh(listaSegura, true)
+            return
+        end
+        if type(dropObj.Set) == "function" then
+            dropObj:Set(listaSegura)
+            return
+        end
+        if type(dropObj.Clear) == "function" and type(dropObj.Add) == "function" then
+            dropObj:Clear()
+            for _, item in ipairs(listaSegura) do
+                dropObj:Add(item)
+            end
+        end
+    end)
 end
-local function v19(v127)
-	if ((4723 >= 2318) and (not v127 or (3748 < 2212))) then
-		return "USUÁRIO FREE";
-	end
-	TABLE_TableIndirection["v128%0"] = string.lower(tostring(v127.Name));
-	TABLE_TableIndirection["v129%0"] = string.lower(tostring(v127.DisplayName));
-	if ((TABLE_TableIndirection["v128%0"] == "luccasxtt") or (TABLE_TableIndirection["v129%0"] == "luccasxtt")) then
-		return "OWNER";
-	elseif ((TABLE_TableIndirection["v128%0"] == "nivel1atenivel2600_p") or (TABLE_TableIndirection["v129%0"] == "nivel1atenivel2600_p")) then
-		return "Creator 02";
-	elseif (TABLE_TableIndirection["v10%0"][TABLE_TableIndirection["v128%0"]] or (TABLE_TableIndirection["v10%0"][TABLE_TableIndirection["v129%0"]] == true) or (1180 == 2180) or (2027 > 2852)) then
-		return "USUÁRIO ADMIN";
-	elseif (((v127 == TABLE_TableIndirection["v1%0"]) and v17()) or (1136 > 4317)) then
-		return "USUÁRIO ADMIN";
-	else
-		return "USUÁRIO FREE";
-	end
+
+local function pedirHttp(dados)
+    local req = (syn and syn.request) or (http and http.request) or request or (fluxus and fluxus.request)
+    return type(req) == "function" and req(dados) or nil
 end
-v11 = v16(TABLE_TableIndirection["v1%0"].UserId);
-TABLE_TableIndirection["v20%0"] = {};
-local function v21()
-	pcall(function()
-		v15({Url=(TABLE_TableIndirection["v9%0"] .. "/usuariosAtivos/" .. tostring(TABLE_TableIndirection["v1%0"].UserId) .. ".json"),Method="PUT",Headers={["Content-Type"]="application/json"},Body=TABLE_TableIndirection["v4%0"]:JSONEncode({userId=TABLE_TableIndirection["v1%0"].UserId,name=TABLE_TableIndirection["v1%0"].Name,role=v19(TABLE_TableIndirection["v1%0"]),timestamp=os.time()})});
-	end);
+
+local function buscarAdminTemporarioNoFirebase(userId)
+    local ok, res = pcall(function()
+        return pedirHttp({
+            Url = LINK_BANCO .. "/adminsTemporarios/" .. tostring(userId) .. ".json",
+            Method = "GET"
+        })
+    end)
+
+    if ok and res and res.Body and res.Body ~= "" and res.Body ~= "null" then
+        local decOk, dados = pcall(function()
+            return HttpService:JSONDecode(res.Body)
+        end)
+        if decOk and type(dados) == "table" and type(dados.expiraEm) == "number" then
+            if os.time() < dados.expiraEm then
+                return dados.expiraEm
+            end
+        end
+    end
+    return nil
 end
-local function v22(v130)
-	if ((4748 == 4748) and not v130) then
-		return;
-	end
-	TABLE_TableIndirection["v131%0"] = v130:FindFirstChild("Head");
-	if ((3736 <= 4740) and (4090 < 4653) and TABLE_TableIndirection["v131%0"]) then
-		TABLE_TableIndirection["v418%0"] = TABLE_TableIndirection["v131%0"]:FindFirstChild("BrocasitxHeadTag");
-		if (TABLE_TableIndirection["v418%0"] or (2652 < 196) or (3390 <= 3060)) then
-			TABLE_TableIndirection["v418%0"]:Destroy();
-		end
-	end
+
+local function hasTemporaryAdminActive()
+    if type(tempoAdminTemporario) == "number" then
+        if os.time() < tempoAdminTemporario then
+            return true
+        else
+            tempoAdminTemporario = nil
+        end
+    end
+    return false
 end
-local function v23(v132, v133)
-	if (not v132 or not v133 or (999 > 2693)) then
-		return;
-	end
-	if ((463 < 601) and (v132 == TABLE_TableIndirection["v1%0"])) then
-		return;
-	end
-	if not TABLE_TableIndirection["v20%0"][tostring(v132.UserId)] then
-		v22(v133);
-		return;
-	end
-	TABLE_TableIndirection["v134%0"] = v133:FindFirstChild("Head") or v133:WaitForChild("Head", 5);
-	if (((4135 < 4817) and not TABLE_TableIndirection["v134%0"]) or (2183 < 687)) then
-		return;
-	end
-	v22(v133);
-	TABLE_TableIndirection["v135%0"] = v19(v132);
-	TABLE_TableIndirection["v136%0"] = Instance.new("BillboardGui");
-	TABLE_TableIndirection["v136%0"].Name = "BrocasitxHeadTag";
-	TABLE_TableIndirection["v136%0"].Adornee = TABLE_TableIndirection["v134%0"];
-	TABLE_TableIndirection["v136%0"].Size = UDim2.fromOffset(130, 26);
-	TABLE_TableIndirection["v136%0"].StudsOffset = Vector3.new(0, 3.1, 0);
-	TABLE_TableIndirection["v136%0"].AlwaysOnTop = false;
-	TABLE_TableIndirection["v136%0"].MaxDistance = 80;
-	TABLE_TableIndirection["v136%0"].Parent = TABLE_TableIndirection["v134%0"];
-	TABLE_TableIndirection["v144%0"] = Instance.new("Frame");
-	TABLE_TableIndirection["v144%0"].Size = UDim2.fromScale(1, 1);
-	TABLE_TableIndirection["v144%0"].BackgroundColor3 = Color3.fromRGB(15, 15, 15);
-	TABLE_TableIndirection["v144%0"].BackgroundTransparency = 0.1;
-	TABLE_TableIndirection["v144%0"].BorderSizePixel = 0;
-	TABLE_TableIndirection["v144%0"].Parent = TABLE_TableIndirection["v136%0"];
-	TABLE_TableIndirection["v150%0"] = Instance.new("UICorner");
-	TABLE_TableIndirection["v150%0"].CornerRadius = UDim.new(0, 6);
-	TABLE_TableIndirection["v150%0"].Parent = TABLE_TableIndirection["v144%0"];
-	TABLE_TableIndirection["v153%0"] = Instance.new("UIStroke");
-	TABLE_TableIndirection["v153%0"].Color = Color3.fromRGB(45, 45, 45);
-	TABLE_TableIndirection["v153%0"].Thickness = 1;
-	TABLE_TableIndirection["v153%0"].Parent = TABLE_TableIndirection["v144%0"];
-	TABLE_TableIndirection["v157%0"] = Instance.new("TextLabel");
-	TABLE_TableIndirection["v157%0"].Size = UDim2.fromScale(1, 1);
-	TABLE_TableIndirection["v157%0"].BackgroundTransparency = 1;
-	TABLE_TableIndirection["v157%0"].Text = TABLE_TableIndirection["v135%0"];
-	TABLE_TableIndirection["v157%0"].TextColor3 = Color3.fromRGB(255, 255, 255);
-	TABLE_TableIndirection["v157%0"].TextScaled = true;
-	TABLE_TableIndirection["v157%0"].Font = Enum.Font.GothamBold;
-	TABLE_TableIndirection["v157%0"].Parent = TABLE_TableIndirection["v144%0"];
-	TABLE_TableIndirection["v166%0"] = Instance.new("UIPadding");
-	TABLE_TableIndirection["v166%0"].PaddingLeft = UDim.new(0, 6);
-	TABLE_TableIndirection["v166%0"].PaddingRight = UDim.new(0, 6);
-	TABLE_TableIndirection["v166%0"].PaddingTop = UDim.new(0, 3);
-	TABLE_TableIndirection["v166%0"].PaddingBottom = UDim.new(0, 3);
-	TABLE_TableIndirection["v166%0"].Parent = TABLE_TableIndirection["v157%0"];
+
+local function isLocalAdminOrOwner()
+    local n = string.lower(tostring(LP.Name))
+    local d = string.lower(tostring(LP.DisplayName))
+    if n == "luccasxtt" or d == "luccasxtt" or ADMINS_EXTRA[n] or ADMINS_EXTRA[d] == true then
+        return true
+    end
+    return hasTemporaryAdminActive()
 end
-local function v24()
-	for v346, v347 in ipairs(TABLE_TableIndirection["v3%0"]:GetPlayers()) do
-		if ((4549 == 4549) and (v347 ~= TABLE_TableIndirection["v1%0"]) and v347.Character) then
-			if ((4672 == 4672) and (272 == 272) and TABLE_TableIndirection["v20%0"][tostring(v347.UserId)]) then
-				v23(v347, v347.Character);
-			else
-				v22(v347.Character);
-			end
-		end
-	end
+
+local function getRoleTag(player)
+    if not player then return "USUÁRIO FREE" end
+    local n = string.lower(tostring(player.Name))
+    local d = string.lower(tostring(player.DisplayName))
+    if n == "luccasxtt" or d == "luccasxtt" then
+        return "OWNER"
+    elseif n == "nivel1atenivel2600_p" or d == "nivel1atenivel2600_p" then
+        return "Creator 02"
+    elseif ADMINS_EXTRA[n] or ADMINS_EXTRA[d] == true then
+        return "USUÁRIO ADMIN"
+    elseif player == LP and hasTemporaryAdminActive() then
+        return "USUÁRIO ADMIN"
+    else
+        return "USUÁRIO FREE"
+    end
 end
-local function v25()
-	for v348, v349 in ipairs(TABLE_TableIndirection["v3%0"]:GetPlayers()) do
-		if ((v349 ~= TABLE_TableIndirection["v1%0"]) or (3668 < 395)) then
-			v349.CharacterAdded:Connect(function(v499)
-				task.wait(0.2);
-				if TABLE_TableIndirection["v20%0"][tostring(v349.UserId)] then
-					v23(v349, v499);
-				end
-			end);
-		end
-	end
-	TABLE_TableIndirection["v3%0"].PlayerAdded:Connect(function(v350)
-		if ((100 <= 3123) and (v350 ~= TABLE_TableIndirection["v1%0"])) then
-			v350.CharacterAdded:Connect(function(v500)
-				task.wait(0.2);
-				if (TABLE_TableIndirection["v20%0"][tostring(v350.UserId)] or (1369 > 4987)) then
-					v23(v350, v500);
-				end
-			end);
-		end
-	end);
+
+tempoAdminTemporario = buscarAdminTemporarioNoFirebase(LP.UserId)
+
+local activeScriptUsers = {}
+
+local function registrarPresencaNoScript()
+    pcall(function()
+        pedirHttp({
+            Url = LINK_BANCO .. "/usuariosAtivos/" .. tostring(LP.UserId) .. ".json",
+            Method = "PUT",
+            Headers = { ["Content-Type"] = "application/json" },
+            Body = HttpService:JSONEncode({
+                userId = LP.UserId,
+                name = LP.Name,
+                role = getRoleTag(LP),
+                timestamp = os.time()
+            })
+        })
+    end)
 end
-v25();
+
+local function removerTagDePersonagem(character)
+    if not character then return end
+    local head = character:FindFirstChild("Head")
+    if head then
+        local oldTag = head:FindFirstChild("BrocasitxHeadTag")
+        if oldTag then oldTag:Destroy() end
+    end
+end
+
+local function aplicarTagEmPersonagem(targetPlayer, character)
+    if not targetPlayer or not character then return end
+    if targetPlayer == LP then return end
+
+    if not activeScriptUsers[tostring(targetPlayer.UserId)] then
+        removerTagDePersonagem(character)
+        return
+    end
+
+    local head = character:FindFirstChild("Head") or character:WaitForChild("Head", 5)
+    if not head then return end
+
+    removerTagDePersonagem(character)
+
+    local tagText = getRoleTag(targetPlayer)
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "BrocasitxHeadTag"
+    billboard.Adornee = head
+    billboard.Size = UDim2.fromOffset(130, 26)
+    billboard.StudsOffset = Vector3.new(0, 3.1, 0)
+    billboard.AlwaysOnTop = false
+    billboard.MaxDistance = 80
+    billboard.Parent = head
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.fromScale(1, 1)
+    frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    frame.BackgroundTransparency = 0.1
+    frame.BorderSizePixel = 0
+    frame.Parent = billboard
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = frame
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(45, 45, 45)
+    stroke.Thickness = 1
+    stroke.Parent = frame
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.fromScale(1, 1)
+    label.BackgroundTransparency = 1
+    label.Text = tagText
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamBold
+    label.Parent = frame
+
+    local padding = Instance.new("UIPadding")
+    padding.PaddingLeft = UDim.new(0, 6)
+    padding.PaddingRight = UDim.new(0, 6)
+    padding.PaddingTop = UDim.new(0, 3)
+    padding.PaddingBottom = UDim.new(0, 3)
+    padding.Parent = label
+end
+
+local function atualizarTagsDeTodos()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LP and plr.Character then
+            if activeScriptUsers[tostring(plr.UserId)] then
+                aplicarTagEmPersonagem(plr, plr.Character)
+            else
+                removerTagDePersonagem(plr.Character)
+            end
+        end
+    end
+end
+
+local function configurarTagsDeJogadores()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LP then
+            plr.CharacterAdded:Connect(function(char)
+                task.wait(0.2)
+                if activeScriptUsers[tostring(plr.UserId)] then
+                    aplicarTagEmPersonagem(plr, char)
+                end
+            end)
+        end
+    end
+
+    Players.PlayerAdded:Connect(function(plr)
+        if plr ~= LP then
+            plr.CharacterAdded:Connect(function(char)
+                task.wait(0.2)
+                if activeScriptUsers[tostring(plr.UserId)] then
+                    aplicarTagEmPersonagem(plr, char)
+                end
+            end)
+        end
+    end)
+end
+
+configurarTagsDeJogadores()
+
 task.spawn(function()
-	v21();
-	while task.wait(5) do
-		if (((type(v11) == "number") and (os.time() >= v11)) or (863 >= 4584) or (4166 == 455)) then
-			v11 = nil;
-			pcall(function()
-				if TABLE_TableIndirection["v12%0"] then
-					if ((type(TABLE_TableIndirection["v12%0"].Destroy) == "function") or (724 >= 1668)) then
-						TABLE_TableIndirection["v12%0"]:Destroy();
-					elseif ((428 < 1804) and (type(TABLE_TableIndirection["v12%0"].Close) == "function")) then
-						TABLE_TableIndirection["v12%0"]:Close();
-					end
-					TABLE_TableIndirection["v12%0"] = nil;
-				end
-			end);
-			if (not TABLE_TableIndirection["v14%0"] or (3325 > 4613) or (4449 == 2663)) then
-				TABLE_TableIndirection["v14%0"] = true;
-				pcall(function()
-					TABLE_TableIndirection["v0%0"]:Notify({Title="Admin Expirado",Content="Seu tempo de admin acabou. Voltou para USUÁRIO FREE.",Icon="clock",Duration=5});
-				end);
-			end
-		end
-		v21();
-		local v351, v352 = pcall(function()
-			return v15({Url=(TABLE_TableIndirection["v9%0"] .. "/usuariosAtivos.json"),Method="GET"});
-		end);
-		if (v351 and v352 and v352.Body and (v352.Body ~= "null")) then
-			local v462, v463 = pcall(function()
-				return TABLE_TableIndirection["v4%0"]:JSONDecode(v352.Body);
-			end);
-			if (v462 and (type(v463) == "table")) then
-				TABLE_TableIndirection["v517%0"] = {};
-				TABLE_TableIndirection["v518%0"] = os.time();
-				for v535, v536 in pairs(v463) do
-					if (((type(v536) == "table") and tonumber(v536.timestamp) and ((TABLE_TableIndirection["v518%0"] - tonumber(v536.timestamp)) <= 20)) or (4950 <= 4553) or (4277 < 2989)) then
-						TABLE_TableIndirection["v517%0"][tostring(v535)] = true;
-					end
-				end
-				TABLE_TableIndirection["v20%0"] = TABLE_TableIndirection["v517%0"];
-				v24();
-			end
-		end
-	end
-end);
-TABLE_TableIndirection["v26%0"] = "108306423679517";
-TABLE_TableIndirection["v27%0"] = 0.2;
-TABLE_TableIndirection["v28%0"] = false;
-TABLE_TableIndirection["v29%0"] = 0;
-TABLE_TableIndirection["v30%0"] = 90;
-TABLE_TableIndirection["v31%0"] = Instance.new("Sound");
-TABLE_TableIndirection["v31%0"].Name = "Brocasitx_GRWM_Auto";
-TABLE_TableIndirection["v31%0"].SoundId = "rbxassetid://" .. TABLE_TableIndirection["v26%0"];
-TABLE_TableIndirection["v31%0"].Volume = TABLE_TableIndirection["v27%0"];
-TABLE_TableIndirection["v31%0"].Looped = true;
+    registrarPresencaNoScript()
+    while task.wait(5) do
+        if type(tempoAdminTemporario) == "number" and os.time() >= tempoAdminTemporario then
+            tempoAdminTemporario = nil
+            pcall(function()
+                if AdminWinRef then
+                    if type(AdminWinRef.Destroy) == "function" then
+                        AdminWinRef:Destroy()
+                    elseif type(AdminWinRef.Close) == "function" then
+                        AdminWinRef:Close()
+                    end
+                    AdminWinRef = nil
+                end
+            end)
+            if not adminExpiradoNotificado then
+                adminExpiradoNotificado = true
+                notificar("Admin Expirado", "Seu tempo de admin acabou. Voltou para USUÁRIO FREE.", 5)
+            end
+        end
+
+        registrarPresencaNoScript()
+
+        local ok, resposta = pcall(function()
+            return pedirHttp({
+                Url = LINK_BANCO .. "/usuariosAtivos.json",
+                Method = "GET"
+            })
+        end)
+
+        if ok and resposta and resposta.Body and resposta.Body ~= "null" then
+            local decOk, lista = pcall(function() return HttpService:JSONDecode(resposta.Body) end)
+            if decOk and type(lista) == "table" then
+                local novaLista = {}
+                local agora = os.time()
+                for uidStr, info in pairs(lista) do
+                    if type(info) == "table" and tonumber(info.timestamp) and (agora - tonumber(info.timestamp)) <= 20 then
+                        novaLista[tostring(uidStr)] = true
+                    end
+                end
+                activeScriptUsers = novaLista
+                atualizarTagsDeTodos()
+            end
+        end
+    end
+end)
+
+-- =========================================================
+-- MUSICA AUTOMATICA "GRWM" (VOLUME 20 + RESET EM 1:30 = 90s)
+-- =========================================================
+local GRWM_ID = "108306423679517"
+local VOLUME_GRWM = 0.2
+local musicaPausadaManualmente = false
+local tempoDecorridoMusica = 0
+local LIMITE_LOOP_SEGUNDOS = 90
+
+local grwmSound = Instance.new("Sound")
+grwmSound.Name = "Brocasitx_GRWM_Auto"
+grwmSound.SoundId = "rbxassetid://" .. GRWM_ID
+grwmSound.Volume = VOLUME_GRWM
+grwmSound.Looped = true
 pcall(function()
-	TABLE_TableIndirection["v31%0"].Parent = TABLE_TableIndirection["v7%0"];
-end);
-local function v36(v173)
-	TABLE_TableIndirection["v28%0"] = false;
-	if ((2665 <= 3933) and v173) then
-		TABLE_TableIndirection["v29%0"] = 0;
-	end
-	pcall(function()
-		if ((3273 == 3273) and (not TABLE_TableIndirection["v31%0"] or not TABLE_TableIndirection["v31%0"].Parent)) then
-			TABLE_TableIndirection["v31%0"] = Instance.new("Sound");
-			TABLE_TableIndirection["v31%0"].Name = "Brocasitx_GRWM_Auto";
-			TABLE_TableIndirection["v31%0"].SoundId = "rbxassetid://" .. TABLE_TableIndirection["v26%0"];
-			TABLE_TableIndirection["v31%0"].Looped = true;
-			TABLE_TableIndirection["v31%0"].Parent = TABLE_TableIndirection["v7%0"];
-		end
-		TABLE_TableIndirection["v31%0"].SoundId = "rbxassetid://" .. TABLE_TableIndirection["v26%0"];
-		TABLE_TableIndirection["v31%0"].Volume = TABLE_TableIndirection["v27%0"];
-		if v173 then
-			TABLE_TableIndirection["v31%0"].TimePosition = 0;
-		end
-		TABLE_TableIndirection["v31%0"]:Play();
-	end);
+    grwmSound.Parent = SoundService
+end)
+
+local function iniciarOuReiniciarGRWM(reiniciarDoZero)
+    musicaPausadaManualmente = false
+    if reiniciarDoZero then
+        tempoDecorridoMusica = 0
+    end
+    pcall(function()
+        if not grwmSound or not grwmSound.Parent then
+            grwmSound = Instance.new("Sound")
+            grwmSound.Name = "Brocasitx_GRWM_Auto"
+            grwmSound.SoundId = "rbxassetid://" .. GRWM_ID
+            grwmSound.Looped = true
+            grwmSound.Parent = SoundService
+        end
+        grwmSound.SoundId = "rbxassetid://" .. GRWM_ID
+        grwmSound.Volume = VOLUME_GRWM
+        if reiniciarDoZero then
+            grwmSound.TimePosition = 0
+        end
+        grwmSound:Play()
+    end)
 end
-local function v37()
-	TABLE_TableIndirection["v28%0"] = true;
-	pcall(function()
-		if TABLE_TableIndirection["v31%0"] then
-			TABLE_TableIndirection["v31%0"]:Pause();
-		end
-	end);
+
+local function pausarGRWM()
+    musicaPausadaManualmente = true
+    pcall(function()
+        if grwmSound then
+            grwmSound:Pause()
+        end
+    end)
 end
-v36(true);
+
+iniciarOuReiniciarGRWM(true)
+
 task.spawn(function()
-	while true do
-		TABLE_TableIndirection["v355%0"] = task.wait(0.25);
-		if ((not TABLE_TableIndirection["v28%0"] and TABLE_TableIndirection["v31%0"]) or (870 >= 4149)) then
-			TABLE_TableIndirection["v29%0"] = TABLE_TableIndirection["v29%0"] + TABLE_TableIndirection["v355%0"];
-			if ((TABLE_TableIndirection["v29%0"] >= TABLE_TableIndirection["v30%0"]) or (TABLE_TableIndirection["v31%0"].TimePosition >= TABLE_TableIndirection["v30%0"])) then
-				TABLE_TableIndirection["v29%0"] = 0;
-				pcall(function()
-					TABLE_TableIndirection["v31%0"].TimePosition = 0;
-					TABLE_TableIndirection["v31%0"]:Play();
-				end);
-			elseif not TABLE_TableIndirection["v31%0"].IsPlaying then
-				pcall(function()
-					TABLE_TableIndirection["v31%0"].Volume = TABLE_TableIndirection["v27%0"];
-					TABLE_TableIndirection["v31%0"]:Play();
-				end);
-			end
-		end
-	end
-end);
-TABLE_TableIndirection["v38%0"] = nil;
-TABLE_TableIndirection["v39%0"] = false;
-local function v40(v174, v175)
-	if ((3824 > 409) and (not v174 or not v174.Character)) then
-		return;
-	end
-	TABLE_TableIndirection["v176%0"] = v174.Character:FindFirstChild("HumanoidRootPart");
-	if not TABLE_TableIndirection["v176%0"] then
-		return;
-	end
-	TABLE_TableIndirection["v177%0"] = v175 or TABLE_TableIndirection["v176%0"].CFrame;
-	TABLE_TableIndirection["v178%0"] = workspace:FindFirstChild("IceJail_" .. v174.Name);
-	if TABLE_TableIndirection["v178%0"] then
-		TABLE_TableIndirection["v178%0"]:Destroy();
-	end
-	TABLE_TableIndirection["v179%0"] = Instance.new("Model");
-	TABLE_TableIndirection["v179%0"].Name = "IceJail_" .. v174.Name;
-	TABLE_TableIndirection["v179%0"].Parent = workspace;
-	local function v182(v356, v357)
-		TABLE_TableIndirection["v358%0"] = Instance.new("Part");
-		TABLE_TableIndirection["v358%0"].Size = v356;
-		TABLE_TableIndirection["v358%0"].CFrame = TABLE_TableIndirection["v177%0"] * v357;
-		TABLE_TableIndirection["v358%0"].Anchored = true;
-		TABLE_TableIndirection["v358%0"].CanCollide = true;
-		TABLE_TableIndirection["v358%0"].Material = Enum.Material.Ice;
-		TABLE_TableIndirection["v358%0"].Color = Color3.fromRGB(0, 150, 255);
-		TABLE_TableIndirection["v358%0"].Transparency = 0.4;
-		TABLE_TableIndirection["v358%0"].Parent = TABLE_TableIndirection["v179%0"];
-	end
-	v182(Vector3.new(10, 1, 10), CFrame.new(0, -4, 0));
-	v182(Vector3.new(10, 1, 10), CFrame.new(0, 8, 0));
-	v182(Vector3.new(10, 12, 1), CFrame.new(0, 2, -5));
-	v182(Vector3.new(10, 12, 1), CFrame.new(0, 2, 5));
-	v182(Vector3.new(1, 12, 10), CFrame.new(-5, 2, 0));
-	v182(Vector3.new(1, 12, 10), CFrame.new(5, 2, 0));
+    while true do
+        local dt = task.wait(0.25)
+        if not musicaPausadaManualmente and grwmSound then
+            tempoDecorridoMusica = tempoDecorridoMusica + dt
+            if tempoDecorridoMusica >= LIMITE_LOOP_SEGUNDOS or grwmSound.TimePosition >= LIMITE_LOOP_SEGUNDOS then
+                tempoDecorridoMusica = 0
+                pcall(function()
+                    grwmSound.TimePosition = 0
+                    grwmSound:Play()
+                end)
+            elseif not grwmSound.IsPlaying then
+                pcall(function()
+                    grwmSound.Volume = VOLUME_GRWM
+                    grwmSound:Play()
+                end)
+            end
+        end
+    end
+end)
+
+local jailSpawnCFrame = nil
+local isJailedLocal = false
+
+local function criarJaulaEm(targetPlayer, customCFrame)
+    if not targetPlayer or not targetPlayer.Character then return end
+    local hrp = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local centerCF = customCFrame or hrp.CFrame
+
+    local oldJail = workspace:FindFirstChild("IceJail_" .. targetPlayer.Name)
+    if oldJail then oldJail:Destroy() end
+
+    local jail = Instance.new("Model")
+    jail.Name = "IceJail_" .. targetPlayer.Name
+    jail.Parent = workspace
+
+    local function makeWall(size, cf)
+        local p = Instance.new("Part")
+        p.Size = size
+        p.CFrame = centerCF * cf
+        p.Anchored = true
+        p.CanCollide = true
+        p.Material = Enum.Material.Ice
+        p.Color = Color3.fromRGB(0, 150, 255)
+        p.Transparency = 0.4
+        p.Parent = jail
+    end
+
+    makeWall(Vector3.new(10, 1, 10), CFrame.new(0, -4, 0))
+    makeWall(Vector3.new(10, 1, 10), CFrame.new(0, 8, 0))
+    makeWall(Vector3.new(10, 12, 1), CFrame.new(0, 2, -5))
+    makeWall(Vector3.new(10, 12, 1), CFrame.new(0, 2, 5))
+    makeWall(Vector3.new(1, 12, 10), CFrame.new(-5, 2, 0))
+    makeWall(Vector3.new(1, 12, 10), CFrame.new(5, 2, 0))
 end
-local function v41(v183)
-	if ((2212 < 3183) and not v183) then
-		return;
-	end
-	TABLE_TableIndirection["v184%0"] = workspace:FindFirstChild("IceJail_" .. v183.Name);
-	if ((2087 == 2087) and TABLE_TableIndirection["v184%0"]) then
-		TABLE_TableIndirection["v184%0"]:Destroy();
-	end
+
+local function removerJaulaDe(targetPlayer)
+    if not targetPlayer then return end
+    local jail = workspace:FindFirstChild("IceJail_" .. targetPlayer.Name)
+    if jail then jail:Destroy() end
 end
-local function v42(v185)
-	TABLE_TableIndirection["v186%0"] = TABLE_TableIndirection["v1%0"].Character;
-	TABLE_TableIndirection["v187%0"] = TABLE_TableIndirection["v186%0"] and TABLE_TableIndirection["v186%0"]:FindFirstChild("HumanoidRootPart");
-	TABLE_TableIndirection["v188%0"] = (TABLE_TableIndirection["v187%0"] and TABLE_TableIndirection["v187%0"].CFrame) or CFrame.new(0, 10, 0);
-	if (v185 and v185.jx and v185.jy and v185.jz) then
-		TABLE_TableIndirection["v188%0"] = CFrame.new(tonumber(v185.jx), tonumber(v185.jy), tonumber(v185.jz));
-	end
-	TABLE_TableIndirection["v38%0"] = TABLE_TableIndirection["v188%0"];
-	TABLE_TableIndirection["v39%0"] = true;
-	if TABLE_TableIndirection["v187%0"] then
-		pcall(function()
-			TABLE_TableIndirection["v187%0"].CFrame = TABLE_TableIndirection["v38%0"];
-		end);
-	end
-	v40(TABLE_TableIndirection["v1%0"], TABLE_TableIndirection["v38%0"]);
+
+local function prenderLocalNoJail(dados)
+    local char = LP.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local baseCF = hrp and hrp.CFrame or CFrame.new(0, 10, 0)
+
+    if dados and dados.jx and dados.jy and dados.jz then
+        baseCF = CFrame.new(tonumber(dados.jx), tonumber(dados.jy), tonumber(dados.jz))
+    end
+
+    jailSpawnCFrame = baseCF
+    isJailedLocal = true
+
+    if hrp then
+        pcall(function() hrp.CFrame = jailSpawnCFrame end)
+    end
+    criarJaulaEm(LP, jailSpawnCFrame)
 end
-local function v43()
-	TABLE_TableIndirection["v39%0"] = false;
-	TABLE_TableIndirection["v38%0"] = nil;
-	v41(TABLE_TableIndirection["v1%0"]);
+
+local function soltarLocalDoJail()
+    isJailedLocal = false
+    jailSpawnCFrame = nil
+    removerJaulaDe(LP)
 end
-TABLE_TableIndirection["v1%0"].CharacterAdded:Connect(function(v189)
-	if ((4646 > 2992) and ((TABLE_TableIndirection["v39%0"] and TABLE_TableIndirection["v38%0"]) or (3404 > 4503))) then
-		task.spawn(function()
-			TABLE_TableIndirection["v470%0"] = v189:WaitForChild("HumanoidRootPart", 8);
-			task.wait(0.15);
-			if (TABLE_TableIndirection["v39%0"] and TABLE_TableIndirection["v38%0"] and TABLE_TableIndirection["v470%0"]) then
-				pcall(function()
-					TABLE_TableIndirection["v470%0"].CFrame = TABLE_TableIndirection["v38%0"];
-				end);
-				v40(TABLE_TableIndirection["v1%0"], TABLE_TableIndirection["v38%0"]);
-			end
-		end);
-	end
-end);
-local function v44()
-	TABLE_TableIndirection["v190%0"] = TABLE_TableIndirection["v1%0"].Character;
-	TABLE_TableIndirection["v191%0"] = TABLE_TableIndirection["v190%0"] and TABLE_TableIndirection["v190%0"]:FindFirstChildOfClass("Humanoid");
-	if (TABLE_TableIndirection["v191%0"] or (3506 <= 1309)) then
-		TABLE_TableIndirection["v191%0"].Health = 0;
-	end
+
+LP.CharacterAdded:Connect(function(char)
+    if isJailedLocal and jailSpawnCFrame then
+        task.spawn(function()
+            local hrp = char:WaitForChild("HumanoidRootPart", 8)
+            task.wait(0.15)
+            if isJailedLocal and jailSpawnCFrame and hrp then
+                pcall(function()
+                    hrp.CFrame = jailSpawnCFrame
+                end)
+                criarJaulaEm(LP, jailSpawnCFrame)
+            end
+        end)
+    end
+end)
+
+local function matarPersonagemLocal()
+    local char = LP.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then hum.Health = 0 end
 end
-local function v45(v192)
-	TABLE_TableIndirection["v193%0"] = tostring(v192 or "");
-	if ((2955 == 2955) and (TABLE_TableIndirection["v193%0"] == "")) then
-		return;
-	end
-	TABLE_TableIndirection["v194%0"] = false;
-	pcall(function()
-		if (TABLE_TableIndirection["v5%0"] and (TABLE_TableIndirection["v5%0"].ChatVersion == Enum.ChatVersion.TextChatService)) then
-			TABLE_TableIndirection["v471%0"] = TABLE_TableIndirection["v5%0"]:FindFirstChild("TextChannels");
-			TABLE_TableIndirection["v472%0"] = TABLE_TableIndirection["v471%0"] and TABLE_TableIndirection["v471%0"]:FindFirstChild("RBXGeneral");
-			if (TABLE_TableIndirection["v472%0"] or (2903 == 1495)) then
-				TABLE_TableIndirection["v472%0"]:SendAsync(TABLE_TableIndirection["v193%0"]);
-				TABLE_TableIndirection["v194%0"] = true;
-			end
-		end
-	end);
-	if ((1434 < 3106) and (4546 >= 2275) and not TABLE_TableIndirection["v194%0"]) then
-		pcall(function()
-			TABLE_TableIndirection["v473%0"] = TABLE_TableIndirection["v6%0"]:FindFirstChild("DefaultChatSystemChatEvents");
-			TABLE_TableIndirection["v474%0"] = TABLE_TableIndirection["v473%0"] and TABLE_TableIndirection["v473%0"]:FindFirstChild("SayMessageRequest");
-			if ((819 >= 22) and TABLE_TableIndirection["v474%0"]) then
-				TABLE_TableIndirection["v474%0"]:FireServer(TABLE_TableIndirection["v193%0"], "All");
-			end
-		end);
-	end
+
+local function falarComandoNoChat(texto)
+    local msg = tostring(texto or "")
+    if msg == "" then return end
+
+    local enviou = false
+    pcall(function()
+        if TextChatService and TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+            local channels = TextChatService:FindFirstChild("TextChannels")
+            local rbxGeneral = channels and channels:FindFirstChild("RBXGeneral")
+            if rbxGeneral then
+                rbxGeneral:SendAsync(msg)
+                enviou = true
+            end
+        end
+    end)
+
+    if not enviou then
+        pcall(function()
+            local defaultChat = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
+            local sayMsg = defaultChat and defaultChat:FindFirstChild("SayMessageRequest")
+            if sayMsg then
+                sayMsg:FireServer(msg, "All")
+            end
+        end)
+    end
 end
-local function v46(v195, v196, v197)
-	if ((786 < 3023) and (3162 == 3162) and not v195) then
-		return false, "Jogador inválido";
-	end
-	v45(":" .. tostring(v196) .. " " .. tostring(v195.Name));
-	TABLE_TableIndirection["v198%0"] = {de=TABLE_TableIndirection["v1%0"].Name,comando=v196};
-	if ((type(v197) == "table") or (2369 > 4429)) then
-		for v475, v476 in pairs(v197) do
-			TABLE_TableIndirection["v198%0"][v475] = v476;
-		end
-	end
-	TABLE_TableIndirection["v199%0"] = TABLE_TableIndirection["v4%0"]:JSONEncode(TABLE_TableIndirection["v198%0"]);
-	local v200, v201 = pcall(function()
-		return v15({Url=(TABLE_TableIndirection["v9%0"] .. "/recados/" .. tostring(v195.UserId) .. ".json"),Method="PUT",Headers={["Content-Type"]="application/json"},Body=TABLE_TableIndirection["v199%0"]});
-	end);
-	return v200 and (v201 ~= nil), ((not v200 or not v201) and "Falha na API") or nil;
+
+local function mandarParaJogador(alvoPlayer, comando, extra)
+    if not alvoPlayer then return false, "Jogador inválido" end
+
+    falarComandoNoChat(":" .. tostring(comando) .. " " .. tostring(alvoPlayer.Name))
+
+    local payload = {
+        de = LP.Name,
+        comando = comando
+    }
+
+    if type(extra) == "table" then
+        for k, v in pairs(extra) do
+            payload[k] = v
+        end
+    end
+
+    local corpo = HttpService:JSONEncode(payload)
+    local ok, res = pcall(function()
+        return pedirHttp({
+            Url = LINK_BANCO .. "/recados/" .. tostring(alvoPlayer.UserId) .. ".json",
+            Method = "PUT",
+            Headers = { ["Content-Type"] = "application/json" },
+            Body = corpo
+        })
+    end)
+    return (ok and res ~= nil), (not ok or not res) and "Falha na API" or nil
 end
+
 task.spawn(function()
-	while task.wait(2) do
-		local v368, v369 = pcall(function()
-			return v15({Url=(TABLE_TableIndirection["v9%0"] .. "/recados/" .. tostring(TABLE_TableIndirection["v1%0"].UserId) .. ".json"),Method="GET"});
-		end);
-		if ((4095 >= 3183) and v368 and v369 and v369.Body and (v369.Body ~= "null")) then
-			local v478, v479 = pcall(function()
-				return TABLE_TableIndirection["v4%0"]:JSONDecode(v369.Body);
-			end);
-			if ((v478 and (type(v479) == "table") and v479.comando) or (3711 < 1008)) then
-				if ((v479.comando == "aviso") or (1049 <= 906)) then
-					TABLE_TableIndirection["v0%0"]:Notify({Title="Recado Recebido",Content=("Aviso de " .. tostring(v479.de or "Alguém") .. "!"),Icon="bell",Duration=5});
-				elseif ((v479.comando == "jail") or (2442 < 74)) then
-					v42(v479);
-					TABLE_TableIndirection["v0%0"]:Notify({Title="Jail",Content=("Preso por " .. tostring(v479.de or "Admin") .. "!"),Icon="snowflake",Duration=5});
-				elseif (v479.comando == "unjail") then
-					v43();
-					TABLE_TableIndirection["v0%0"]:Notify({Title="Unjail",Content=("Solto por " .. tostring(v479.de or "Admin") .. "!"),Icon="lock-open",Duration=5});
-				elseif ((4535 == 4535) and (v479.comando == "kill")) then
-					v44();
-					TABLE_TableIndirection["v0%0"]:Notify({Title="Kill",Content=("Resetado por " .. tostring(v479.de or "Admin") .. "!"),Icon="skull",Duration=5});
-				elseif (v479.comando == "bring") then
-					TABLE_TableIndirection["v561%0"] = TABLE_TableIndirection["v1%0"].Character;
-					TABLE_TableIndirection["v562%0"] = TABLE_TableIndirection["v561%0"] and TABLE_TableIndirection["v561%0"]:FindFirstChild("HumanoidRootPart");
-					if (TABLE_TableIndirection["v562%0"] and v479.x and v479.y and v479.z) then
-						pcall(function()
-							TABLE_TableIndirection["v562%0"].CFrame = CFrame.new(tonumber(v479.x), tonumber(v479.y), tonumber(v479.z));
-						end);
-					end
-					TABLE_TableIndirection["v0%0"]:Notify({Title="Trazer",Content=("Puxado por " .. tostring(v479.de or "Admin") .. "!"),Icon="user-plus",Duration=5});
-				end
-				pcall(function()
-					v15({Url=(TABLE_TableIndirection["v9%0"] .. "/recados/" .. tostring(TABLE_TableIndirection["v1%0"].UserId) .. ".json"),Method="DELETE"});
-				end);
-			end
-		end
-	end
-end);
-TABLE_TableIndirection["v47%0"] = false;
-TABLE_TableIndirection["v48%0"] = {};
-TABLE_TableIndirection["v49%0"] = {};
-local function v50(v202)
-	if ((4513 > 2726) and (not v202 or not (v202:IsA("Seat") or v202:IsA("VehicleSeat")))) then
-		return;
-	end
-	if ((TABLE_TableIndirection["v48%0"][v202] == nil) or (1481 >= 2658)) then
-		TABLE_TableIndirection["v48%0"][v202] = v202.CanCollide;
-	end
-	pcall(function()
-		v202.CanCollide = false;
-	end);
+    while task.wait(2) do
+        local ok, resposta = pcall(function()
+            return pedirHttp({
+                Url = LINK_BANCO .. "/recados/" .. tostring(LP.UserId) .. ".json",
+                Method = "GET"
+            })
+        end)
+        if ok and resposta and resposta.Body and resposta.Body ~= "null" then
+            local decOk, dados = pcall(function() return HttpService:JSONDecode(resposta.Body) end)
+            if decOk and type(dados) == "table" and dados.comando then
+                if dados.comando == "aviso" then
+                    notificar("Recado Recebido", "Aviso de " .. tostring(dados.de or "Alguém") .. "!", 5)
+                elseif dados.comando == "jail" then
+                    prenderLocalNoJail(dados)
+                    notificar("Jail", "Preso por " .. tostring(dados.de or "Admin") .. "!", 5)
+                elseif dados.comando == "unjail" then
+                    soltarLocalDoJail()
+                    notificar("Unjail", "Solto por " .. tostring(dados.de or "Admin") .. "!", 5)
+                elseif dados.comando == "kill" then
+                    matarPersonagemLocal()
+                    notificar("Kill", "Resetado por " .. tostring(dados.de or "Admin") .. "!", 5)
+                elseif dados.comando == "bring" then
+                    local char = LP.Character
+                    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                    if hrp and dados.x and dados.y and dados.z then
+                        pcall(function()
+                            hrp.CFrame = CFrame.new(tonumber(dados.x), tonumber(dados.y), tonumber(dados.z))
+                        end)
+                    end
+                    notificar("Trazer", "Puxado por " .. tostring(dados.de or "Admin") .. "!", 5)
+                end
+                pcall(function()
+                    pedirHttp({
+                        Url = LINK_BANCO .. "/recados/" .. tostring(LP.UserId) .. ".json",
+                        Method = "DELETE"
+                    })
+                end)
+            end
+        end
+    end
+end)
+
+local antiSitEnabled = false
+local savedSeatCollide = {}
+local charConnections = {}
+
+local function desativarSeat(seat)
+    if not seat or not (seat:IsA("Seat") or seat:IsA("VehicleSeat")) then return end
+    if savedSeatCollide[seat] == nil then
+        savedSeatCollide[seat] = seat.CanCollide
+    end
+    pcall(function() seat.CanCollide = false end)
 end
-local function v51(v203)
-	if (not v203 or (3220 == 1364) or (3009 <= 2105)) then
-		return;
-	end
-	pcall(function()
-		v203:SetStateEnabled(Enum.HumanoidStateType.Seated, false);
-	end);
-	v203.Sit = false;
-	if (v203.SeatPart or (1054 > 3392)) then
-		v50(v203.SeatPart);
-	end
+
+local function bloquearSentarNoHumanoid(hum)
+    if not hum then return end
+    pcall(function()
+        hum:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+    end)
+    hum.Sit = false
+    if hum.SeatPart then
+        desativarSeat(hum.SeatPart)
+    end
 end
-local function v52(v205)
-	if (not v205 or (676 >= 1642)) then
-		return;
-	end
-	for v371, v372 in ipairs(v205:GetChildren()) do
-		if ((1830 < 3669) and v372:IsA("Weld") and (v372.Name == "SeatWeld")) then
-			v372:Destroy();
-		end
-	end
+
+local function limparSeatWelds(char)
+    if not char then return end
+    for _, child in ipairs(char:GetChildren()) do
+        if child:IsA("Weld") and child.Name == "SeatWeld" then
+            child:Destroy()
+        end
+    end
 end
-local function v53()
-	for v373, v374 in pairs(TABLE_TableIndirection["v48%0"]) do
-		if (((4136 > 2397) and v373 and v373.Parent) or (1430 >= 3612)) then
-			pcall(function()
-				v373.CanCollide = v374;
-			end);
-		end
-		TABLE_TableIndirection["v48%0"][v373] = nil;
-	end
+
+local function restaurarAssentosAlterados()
+    for seat, origCollide in pairs(savedSeatCollide) do
+        if seat and seat.Parent then
+            pcall(function()
+                seat.CanCollide = origCollide
+            end)
+        end
+        savedSeatCollide[seat] = nil
+    end
 end
-local function v54()
-	TABLE_TableIndirection["v206%0"] = TABLE_TableIndirection["v1%0"].Character;
-	TABLE_TableIndirection["v207%0"] = TABLE_TableIndirection["v206%0"] and TABLE_TableIndirection["v206%0"]:FindFirstChildOfClass("Humanoid");
-	if ((2683 >= 2460) and TABLE_TableIndirection["v207%0"]) then
-		pcall(function()
-			TABLE_TableIndirection["v207%0"]:SetStateEnabled(Enum.HumanoidStateType.Seated, true);
-		end);
-	end
+
+local function restaurarEstadoSeatedHumanoid()
+    local char = LP.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        pcall(function()
+            hum:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+        end)
+    end
 end
-local function v55()
-	for v376, v377 in ipairs(TABLE_TableIndirection["v49%0"]) do
-		pcall(function()
-			v377:Disconnect();
-		end);
-	end
-	TABLE_TableIndirection["v49%0"] = {};
+
+local function desconectarPersonagemAntiSit()
+    for _, conn in ipairs(charConnections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    charConnections = {}
 end
-local function v56(v208)
-	if (not v208:IsA("BasePart") or (1804 >= 3275)) then
-		return;
-	end
-	table.insert(TABLE_TableIndirection["v49%0"], v208.Touched:Connect(function(v378)
-		if not TABLE_TableIndirection["v47%0"] then
-			return;
-		end
-		if (v378 and (v378:IsA("Seat") or v378:IsA("VehicleSeat"))) then
-			v50(v378);
-		end
-	end));
+
+local function conectarParteTouchedAntiSit(part)
+    if not part:IsA("BasePart") then return end
+    table.insert(charConnections, part.Touched:Connect(function(hit)
+        if not antiSitEnabled then return end
+        if hit and (hit:IsA("Seat") or hit:IsA("VehicleSeat")) then
+            desativarSeat(hit)
+        end
+    end))
 end
-local function v57(v209, v210)
-	if (not v209 or not v210 or (4334 == 4245) or (1417 > 3629)) then
-		return;
-	end
-	pcall(function()
-		v210:SetStateEnabled(Enum.HumanoidStateType.Seated, false);
-	end);
-	table.insert(TABLE_TableIndirection["v49%0"], v210.Seated:Connect(function(v379, v380)
-		if (not TABLE_TableIndirection["v47%0"] or not v379 or (4276 <= 3031)) then
-			return;
-		end
-		if ((4795 > 402) and v380) then
-			v50(v380);
-		end
-		v51(v210);
-		v52(v209);
-	end));
+
+local function conectarHumanoidAntiSit(char, hum)
+    if not char or not hum then return end
+    pcall(function()
+        hum:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+    end)
+    table.insert(charConnections, hum.Seated:Connect(function(active, currentSeatPart)
+        if not antiSitEnabled or not active then return end
+        if currentSeatPart then
+            desativarSeat(currentSeatPart)
+        end
+        bloquearSentarNoHumanoid(hum)
+        limparSeatWelds(char)
+    end))
 end
-local function v58(v211)
-	v55();
-	if ((4813 > 3565) and not v211) then
-		return;
-	end
-	TABLE_TableIndirection["v212%0"] = v211:FindFirstChildOfClass("Humanoid");
-	if TABLE_TableIndirection["v212%0"] then
-		v57(v211, TABLE_TableIndirection["v212%0"]);
-		if ((3912 == 3912) and TABLE_TableIndirection["v212%0"].Sit) then
-			v51(TABLE_TableIndirection["v212%0"]);
-			v52(v211);
-		end
-	end
-	for v381, v382 in ipairs(v211:GetDescendants()) do
-		if ((2821 <= 4824) and (v382:IsA("BasePart") or (4782 <= 1199))) then
-			v56(v382);
-		end
-	end
-	table.insert(TABLE_TableIndirection["v49%0"], v211.DescendantAdded:Connect(function(v383)
-		if (not TABLE_TableIndirection["v47%0"] or (4864 < 1902)) then
-			return;
-		end
-		if v383:IsA("BasePart") then
-			v56(v383);
-		elseif ((1738 <= 2195) and (4839 >= 3700) and v383:IsA("Humanoid")) then
-			v57(v211, v383);
-		elseif ((v383:IsA("Weld") and (v383.Name == "SeatWeld")) or (1075 > 1918)) then
-			v383:Destroy();
-			TABLE_TableIndirection["v542%0"] = v211:FindFirstChildOfClass("Humanoid");
-			v51(TABLE_TableIndirection["v542%0"]);
-		end
-	end));
+
+local function ligarAntiSitEmPersonagem(char)
+    desconectarPersonagemAntiSit()
+    if not char then return end
+
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        conectarHumanoidAntiSit(char, hum)
+        if hum.Sit then
+            bloquearSentarNoHumanoid(hum)
+            limparSeatWelds(char)
+        end
+    end
+
+    for _, desc in ipairs(char:GetDescendants()) do
+        if desc:IsA("BasePart") then
+            conectarParteTouchedAntiSit(desc)
+        end
+    end
+
+    table.insert(charConnections, char.DescendantAdded:Connect(function(desc)
+        if not antiSitEnabled then return end
+        if desc:IsA("BasePart") then
+            conectarParteTouchedAntiSit(desc)
+        elseif desc:IsA("Humanoid") then
+            conectarHumanoidAntiSit(char, desc)
+        elseif desc:IsA("Weld") and desc.Name == "SeatWeld" then
+            desc:Destroy()
+            local h = char:FindFirstChildOfClass("Humanoid")
+            bloquearSentarNoHumanoid(h)
+        end
+    end))
 end
-TABLE_TableIndirection["v59%0"] = OverlapParams.new();
-TABLE_TableIndirection["v59%0"].FilterType = Enum.RaycastFilterType.Exclude;
-local function v62(v213)
-	TABLE_TableIndirection["v214%0"] = v213 and v213:FindFirstChild("HumanoidRootPart");
-	if not TABLE_TableIndirection["v214%0"] then
-		return;
-	end
-	TABLE_TableIndirection["v59%0"].FilterDescendantsInstances = {v213};
-	TABLE_TableIndirection["v216%0"] = workspace:GetPartBoundsInRadius(TABLE_TableIndirection["v214%0"].Position, 22, TABLE_TableIndirection["v59%0"]);
-	for v384, v385 in ipairs(TABLE_TableIndirection["v216%0"]) do
-		if (v385:IsA("Seat") or v385:IsA("VehicleSeat")) then
-			v50(v385);
-		end
-	end
+
+local overlapParams = OverlapParams.new()
+overlapParams.FilterType = Enum.RaycastFilterType.Exclude
+
+local function desativarCollideDeAssentosProximos(char)
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    overlapParams.FilterDescendantsInstances = { char }
+
+    local partesProximas = workspace:GetPartBoundsInRadius(hrp.Position, 22, overlapParams)
+    for _, part in ipairs(partesProximas) do
+        if part:IsA("Seat") or part:IsA("VehicleSeat") then
+            desativarSeat(part)
+        end
+    end
 end
-TABLE_TableIndirection["v63%0"] = 0;
-TABLE_TableIndirection["v2%0"].Heartbeat:Connect(function(v217)
-	if ((41 <= 3018) and (396 <= 3804) and not TABLE_TableIndirection["v47%0"]) then
-		return;
-	end
-	TABLE_TableIndirection["v63%0"] = TABLE_TableIndirection["v63%0"] + v217;
-	if ((TABLE_TableIndirection["v63%0"] < 0.12) or (4169 == 2187)) then
-		return;
-	end
-	TABLE_TableIndirection["v63%0"] = 0;
-	TABLE_TableIndirection["v218%0"] = TABLE_TableIndirection["v1%0"].Character;
-	if not TABLE_TableIndirection["v218%0"] then
-		return;
-	end
-	v62(TABLE_TableIndirection["v218%0"]);
-	TABLE_TableIndirection["v219%0"] = TABLE_TableIndirection["v218%0"]:FindFirstChildOfClass("Humanoid");
-	if ((1406 == 1406) and TABLE_TableIndirection["v219%0"]) then
-		pcall(function()
-			TABLE_TableIndirection["v219%0"]:SetStateEnabled(Enum.HumanoidStateType.Seated, false);
-		end);
-		if ((2145 <= 4104) and TABLE_TableIndirection["v219%0"].Sit) then
-			v51(TABLE_TableIndirection["v219%0"]);
-			v52(TABLE_TableIndirection["v218%0"]);
-		end
-	end
-end);
-TABLE_TableIndirection["v1%0"].CharacterAdded:Connect(function(v220)
-	if ((2689 < 4845) and TABLE_TableIndirection["v47%0"]) then
-		v58(v220);
-	end
-end);
-TABLE_TableIndirection["v64%0"] = 16;
-TABLE_TableIndirection["v65%0"] = 50;
-local function v66(v221, v222)
-	if (not v221 or (2322 > 2622)) then
-		return;
-	end
-	pcall(function()
-		v221.WalkSpeed = tonumber(v222) or 16;
-	end);
+
+local elapsedAntiSit = 0
+RunService.Heartbeat:Connect(function(dt)
+    if not antiSitEnabled then return end
+    elapsedAntiSit = elapsedAntiSit + dt
+    if elapsedAntiSit < 0.12 then return end
+    elapsedAntiSit = 0
+
+    local char = LP.Character
+    if not char then return end
+
+    desativarCollideDeAssentosProximos(char)
+
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        pcall(function()
+            hum:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+        end)
+        if hum.Sit then
+            bloquearSentarNoHumanoid(hum)
+            limparSeatWelds(char)
+        end
+    end
+end)
+
+LP.CharacterAdded:Connect(function(char)
+    if antiSitEnabled then
+        ligarAntiSitEmPersonagem(char)
+    end
+end)
+
+local currentSpeedValue = 16
+local currentJumpValue = 50
+
+local function aplicarSpeedNoHumanoid(hum, val)
+    if not hum then return end
+    pcall(function()
+        hum.WalkSpeed = tonumber(val) or 16
+    end)
 end
-local function v67(v223, v224)
-	if (not v223 or (4534 == 2082)) then
-		return;
-	end
-	TABLE_TableIndirection["v225%0"] = tonumber(v224) or 50;
-	pcall(function()
-		v223.UseJumpPower = true;
-		v223.JumpPower = TABLE_TableIndirection["v225%0"];
-	end);
-	pcall(function()
-		v223.JumpHeight = math.clamp((TABLE_TableIndirection["v225%0"] * TABLE_TableIndirection["v225%0"]) / (2 * workspace.Gravity), 0.5, 250);
-	end);
+
+local function aplicarJumpNoHumanoid(hum, val)
+    if not hum then return end
+    local v = tonumber(val) or 50
+    pcall(function()
+        hum.UseJumpPower = true
+        hum.JumpPower = v
+    end)
+    pcall(function()
+        hum.JumpHeight = math.clamp((v * v) / (2 * workspace.Gravity), 0.5, 250)
+    end)
 end
-TABLE_TableIndirection["v1%0"].CharacterAdded:Connect(function(v226)
-	TABLE_TableIndirection["v227%0"] = v226:WaitForChild("Humanoid", 8);
-	if TABLE_TableIndirection["v227%0"] then
-		v66(TABLE_TableIndirection["v227%0"], TABLE_TableIndirection["v64%0"]);
-		v67(TABLE_TableIndirection["v227%0"], TABLE_TableIndirection["v65%0"]);
-	end
-end);
-local function v68()
-	TABLE_TableIndirection["v228%0"] = tonumber(workspace.FallenPartsDestroyHeight) or -500;
-	if ((1531 < 4271) and (TABLE_TableIndirection["v228%0"] > -100)) then
-		return TABLE_TableIndirection["v228%0"] + 12;
-	end
-	return math.max(TABLE_TableIndirection["v228%0"] + 25, -240);
+
+LP.CharacterAdded:Connect(function(char)
+    local hum = char:WaitForChild("Humanoid", 8)
+    if hum then
+        aplicarSpeedNoHumanoid(hum, currentSpeedValue)
+        aplicarJumpNoHumanoid(hum, currentJumpValue)
+    end
+end)
+
+local function obterAlturaVoidSegura()
+    local fallHeight = tonumber(workspace.FallenPartsDestroyHeight) or -500
+    if fallHeight > -100 then
+        return fallHeight + 12
+    end
+    return math.max(fallHeight + 25, -240)
 end
-local function v69(v229)
-	if (((635 == 635) and (not v229 or not v229.Character)) or (1571 > 1867)) then
-		return false, "Alvo inválido ou sem personagem.";
-	end
-	TABLE_TableIndirection["v230%0"] = v229.Character;
-	TABLE_TableIndirection["v231%0"] = TABLE_TableIndirection["v230%0"]:FindFirstChild("HumanoidRootPart");
-	TABLE_TableIndirection["v232%0"] = TABLE_TableIndirection["v230%0"]:FindFirstChildOfClass("Humanoid");
-	TABLE_TableIndirection["v233%0"] = TABLE_TableIndirection["v1%0"].Character;
-	TABLE_TableIndirection["v234%0"] = TABLE_TableIndirection["v233%0"] and TABLE_TableIndirection["v233%0"]:FindFirstChild("HumanoidRootPart");
-	TABLE_TableIndirection["v235%0"] = TABLE_TableIndirection["v233%0"] and TABLE_TableIndirection["v233%0"]:FindFirstChildOfClass("Humanoid");
-	if ((3373 <= 3556) and (not TABLE_TableIndirection["v231%0"] or not TABLE_TableIndirection["v234%0"] or not TABLE_TableIndirection["v235%0"])) then
-		return false, "Personagens não encontrados.";
-	end
-	TABLE_TableIndirection["v236%0"] = TABLE_TableIndirection["v234%0"].CFrame;
-	TABLE_TableIndirection["v237%0"] = v68();
-	pcall(function()
-		TABLE_TableIndirection["v390%0"] = TABLE_TableIndirection["v6%0"]:FindFirstChild("RE");
-		TABLE_TableIndirection["v391%0"] = TABLE_TableIndirection["v390%0"] and TABLE_TableIndirection["v390%0"]:FindFirstChild("1Too1l");
-		if ((TABLE_TableIndirection["v391%0"] and TABLE_TableIndirection["v391%0"]:IsA("RemoteFunction")) or (3291 < 3280) or (2654 >= 2996)) then
-			TABLE_TableIndirection["v391%0"]:InvokeServer("PickingTools", "ShoppingCart");
-		elseif ((3978 > 2104) and (4386 >= 873) and TABLE_TableIndirection["v391%0"] and TABLE_TableIndirection["v391%0"]:IsA("RemoteEvent")) then
-			TABLE_TableIndirection["v391%0"]:FireServer("PickingTools", "ShoppingCart");
-		end
-	end);
-	task.wait(0.25);
-	TABLE_TableIndirection["v238%0"] = TABLE_TableIndirection["v233%0"]:FindFirstChild("ShoppingCart") or (TABLE_TableIndirection["v1%0"]:FindFirstChild("Backpack") and TABLE_TableIndirection["v1%0"].Backpack:FindFirstChild("ShoppingCart"));
-	if ((2995 > 1541) and (921 <= 1102) and TABLE_TableIndirection["v238%0"] and TABLE_TableIndirection["v238%0"]:IsA("Tool") and (TABLE_TableIndirection["v238%0"].Parent ~= TABLE_TableIndirection["v233%0"])) then
-		pcall(function()
-			TABLE_TableIndirection["v235%0"]:EquipTool(TABLE_TableIndirection["v238%0"]);
-		end);
-		task.wait(0.15);
-	end
-	TABLE_TableIndirection["v239%0"] = Instance.new("BodyVelocity");
-	TABLE_TableIndirection["v239%0"].MaxForce = Vector3.new(1000000, 1000000, 1000000);
-	TABLE_TableIndirection["v239%0"].Velocity = Vector3.zero;
-	TABLE_TableIndirection["v239%0"].Parent = TABLE_TableIndirection["v234%0"];
-	TABLE_TableIndirection["v244%0"] = Instance.new("BodyAngularVelocity");
-	TABLE_TableIndirection["v244%0"].MaxTorque = Vector3.new(1000000, 1000000, 1000000);
-	TABLE_TableIndirection["v244%0"].AngularVelocity = Vector3.new(0, 90, 0);
-	TABLE_TableIndirection["v244%0"].Parent = TABLE_TableIndirection["v234%0"];
-	TABLE_TableIndirection["v248%0"] = os.clock();
-	while (os.clock() - TABLE_TableIndirection["v248%0"]) < 0.85 do
-		if ((4706 >= 963) and (not v229.Parent or not TABLE_TableIndirection["v231%0"].Parent or not TABLE_TableIndirection["v234%0"].Parent)) then
-			break;
-		end
-		if ((3249 > 953) and (TABLE_TableIndirection["v232%0"] or (960 <= 876))) then
-			pcall(function()
-				TABLE_TableIndirection["v232%0"]:SetStateEnabled(Enum.HumanoidStateType.Seated, true);
-				TABLE_TableIndirection["v232%0"].Sit = true;
-			end);
-		end
-		TABLE_TableIndirection["v392%0"] = TABLE_TableIndirection["v231%0"].CFrame * CFrame.new(0, -1.6, -0.7);
-		TABLE_TableIndirection["v234%0"].CFrame = TABLE_TableIndirection["v392%0"] * CFrame.Angles(0, math.rad(os.clock() * 720), 0);
-		TABLE_TableIndirection["v239%0"].Velocity = Vector3.zero;
-		TABLE_TableIndirection["v2%0"].Heartbeat:Wait();
-	end
-	TABLE_TableIndirection["v249%0"] = os.clock();
-	while (os.clock() - TABLE_TableIndirection["v249%0"]) < 1.1 do
-		if (not v229.Parent or not TABLE_TableIndirection["v231%0"].Parent or not TABLE_TableIndirection["v234%0"].Parent) then
-			break;
-		end
-		if (TABLE_TableIndirection["v232%0"] or (2066 == 932)) then
-			pcall(function()
-				TABLE_TableIndirection["v232%0"]:SetStateEnabled(Enum.HumanoidStateType.Seated, true);
-				TABLE_TableIndirection["v232%0"].Sit = true;
-			end);
-		end
-		TABLE_TableIndirection["v396%0"] = CFrame.new(TABLE_TableIndirection["v231%0"].Position.X, TABLE_TableIndirection["v237%0"], TABLE_TableIndirection["v231%0"].Position.Z) * CFrame.Angles(0, math.rad(os.clock() * 900), 0);
-		TABLE_TableIndirection["v234%0"].CFrame = TABLE_TableIndirection["v396%0"];
-		TABLE_TableIndirection["v239%0"].Velocity = Vector3.new(0, -85, 0);
-		TABLE_TableIndirection["v2%0"].Heartbeat:Wait();
-	end
-	if (TABLE_TableIndirection["v232%0"] or (3273 > 4573)) then
-		pcall(function()
-			TABLE_TableIndirection["v232%0"].Sit = false;
-		end);
-	end
-	if ((TABLE_TableIndirection["v231%0"] and TABLE_TableIndirection["v231%0"].Parent) or (3151 < 1284)) then
-		pcall(function()
-			TABLE_TableIndirection["v231%0"].CFrame = CFrame.new(TABLE_TableIndirection["v231%0"].Position.X, TABLE_TableIndirection["v237%0"] - 15, TABLE_TableIndirection["v231%0"].Position.Z);
-		end);
-	end
-	task.wait(0.1);
-	pcall(function()
-		TABLE_TableIndirection["v239%0"]:Destroy();
-	end);
-	pcall(function()
-		TABLE_TableIndirection["v244%0"]:Destroy();
-	end);
-	if (((4825 < 4843) and TABLE_TableIndirection["v234%0"] and TABLE_TableIndirection["v234%0"].Parent) or (1850 == 1529)) then
-		pcall(function()
-			TABLE_TableIndirection["v234%0"].AssemblyLinearVelocity = Vector3.zero;
-			TABLE_TableIndirection["v234%0"].AssemblyAngularVelocity = Vector3.zero;
-			TABLE_TableIndirection["v234%0"].CFrame = TABLE_TableIndirection["v236%0"];
-		end);
-	end
-	return true, nil;
+
+local function executarFlingComCarrinho(alvoPlayer)
+    if not alvoPlayer or not alvoPlayer.Character then
+        return false, "Alvo inválido ou sem personagem."
+    end
+
+    local tChar = alvoPlayer.Character
+    local tHrp = tChar:FindFirstChild("HumanoidRootPart")
+    local tHum = tChar:FindFirstChildOfClass("Humanoid")
+    local myChar = LP.Character
+    local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+
+    if not tHrp or not myHrp or not myHum then
+        return false, "Personagens não encontrados."
+    end
+
+    local origCF = myHrp.CFrame
+    local voidY = obterAlturaVoidSegura()
+
+    pcall(function()
+        local re = ReplicatedStorage:FindFirstChild("RE")
+        local toolRemote = re and re:FindFirstChild("1Too1l")
+        if toolRemote and toolRemote:IsA("RemoteFunction") then
+            toolRemote:InvokeServer("PickingTools", "ShoppingCart")
+        elseif toolRemote and toolRemote:IsA("RemoteEvent") then
+            toolRemote:FireServer("PickingTools", "ShoppingCart")
+        end
+    end)
+
+    task.wait(0.25)
+
+    local cart = myChar:FindFirstChild("ShoppingCart") or (LP:FindFirstChild("Backpack") and LP.Backpack:FindFirstChild("ShoppingCart"))
+    if cart and cart:IsA("Tool") and cart.Parent ~= myChar then
+        pcall(function()
+            myHum:EquipTool(cart)
+        end)
+        task.wait(0.2)
+    end
+
+    local tempoEncostar = os.clock()
+    while (os.clock() - tempoEncostar) < 1.1 do
+        if not alvoPlayer.Parent or not tHrp.Parent or not myHrp.Parent then break end
+        pcall(function()
+            myHum:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+            myHum.Sit = true
+            myHrp.AssemblyLinearVelocity = Vector3.zero
+            myHrp.AssemblyAngularVelocity = Vector3.zero
+            myHrp.CFrame = tHrp.CFrame * CFrame.new(0, 0, -1.6)
+        end)
+        if tHum then
+            pcall(function()
+                tHum:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+                tHum.Sit = true
+            end)
+        end
+        RunService.Heartbeat:Wait()
+    end
+
+    local posVoid = Vector3.new(tHrp.Position.X, voidY, tHrp.Position.Z)
+    local tempoVoid = os.clock()
+    while (os.clock() - tempoVoid) < 0.75 do
+        if not myHrp.Parent then break end
+        pcall(function()
+            myHrp.AssemblyLinearVelocity = Vector3.zero
+            myHrp.AssemblyAngularVelocity = Vector3.zero
+            myHrp.CFrame = CFrame.new(posVoid)
+        end)
+        if tHrp and tHrp.Parent then
+            pcall(function()
+                tHrp.AssemblyLinearVelocity = Vector3.zero
+                tHrp.AssemblyAngularVelocity = Vector3.zero
+                tHrp.CFrame = CFrame.new(posVoid.X, posVoid.Y + 1.2, posVoid.Z)
+            end)
+        end
+        RunService.Heartbeat:Wait()
+    end
+
+    if tHum then
+        pcall(function()
+            tHum.Sit = false
+        end)
+        for _, child in ipairs(tChar:GetChildren()) do
+            if child:IsA("Weld") and child.Name == "SeatWeld" then
+                pcall(function() child:Destroy() end)
+            end
+        end
+    end
+
+    if tHrp and tHrp.Parent then
+        pcall(function()
+            tHrp.AssemblyLinearVelocity = Vector3.zero
+            tHrp.AssemblyAngularVelocity = Vector3.zero
+            tHrp.CFrame = CFrame.new(posVoid.X, voidY - 8, posVoid.Z)
+        end)
+    end
+
+    pcall(function()
+        myHum.Sit = false
+    end)
+
+    task.wait(0.15)
+
+    if myHrp and myHrp.Parent then
+        pcall(function()
+            myHrp.AssemblyLinearVelocity = Vector3.zero
+            myHrp.AssemblyAngularVelocity = Vector3.zero
+            myHrp.CFrame = origCF
+        end)
+    end
+
+    return true, nil
 end
-TABLE_TableIndirection["v70%0"] = 0;
-TABLE_TableIndirection["v71%0"] = 6.5;
-TABLE_TableIndirection["v72%0"] = "Nas Costas";
-local function v73()
-	TABLE_TableIndirection["v250%0"] = TABLE_TableIndirection["v1%0"].Character or workspace:FindFirstChild(TABLE_TableIndirection["v1%0"].Name);
-	if ((821 < 2123) and (TABLE_TableIndirection["v250%0"] or (3877 >= 4537))) then
-		TABLE_TableIndirection["v422%0"] = TABLE_TableIndirection["v250%0"]:FindFirstChild("FollowCharacter");
-		if ((902 < 2325) and TABLE_TableIndirection["v422%0"]) then
-			return TABLE_TableIndirection["v422%0"];
-		end
-	end
-	return workspace:FindFirstChild("FollowCharacter");
+
+-- =========================================================
+-- BABY (PEGADA MANUAL DO USUARIO: FOLLOWCHARACTER)
+-- =========================================================
+local babyFollowToken = 0
+local babyOscSpeed = 6.5
+local babyLocalEscolhido = "Nas Costas"
+local babyColado = false
+
+local function buscarFollowCharacterManual()
+    local char = LP.Character or workspace:FindFirstChild(LP.Name)
+    if char then
+        local fc = char:FindFirstChild("FollowCharacter")
+        if fc then return fc end
+    end
+    return workspace:FindFirstChild("FollowCharacter")
 end
-local function v74(v251, v252)
-	if (not v251 or not v251.Parent or not v252 or (4315 < 1726)) then
-		return;
-	end
-	pcall(function()
-		if ((858 <= 2962) and v251:IsA("Model")) then
-			for v504, v505 in ipairs(v251:GetDescendants()) do
-				if (v505:IsA("BasePart") or (3946 < 1288)) then
-					v505.AssemblyLinearVelocity = Vector3.zero;
-					v505.AssemblyAngularVelocity = Vector3.zero;
-				end
-			end
-			v251:PivotTo(v252);
-		elseif (v251:IsA("BasePart") or (3679 < 625) or (3242 == 567)) then
-			v251.AssemblyLinearVelocity = Vector3.zero;
-			v251.AssemblyAngularVelocity = Vector3.zero;
-			v251.CFrame = v252;
-		elseif (v251:IsA("Humanoid") and v251.Parent) then
-			for v549, v550 in ipairs(v251.Parent:GetDescendants()) do
-				if (v550:IsA("BasePart") or (4625 < 632) or (847 >= 1263)) then
-					v550.AssemblyLinearVelocity = Vector3.zero;
-					v550.AssemblyAngularVelocity = Vector3.zero;
-				end
-			end
-			v251.Parent:PivotTo(v252);
-		end
-	end);
+
+local function posicionarObjetoEmCFrame(obj, destino)
+    if not obj or not obj.Parent or not destino then return end
+    pcall(function()
+        if obj:IsA("Model") then
+            for _, p in ipairs(obj:GetDescendants()) do
+                if p:IsA("BasePart") then
+                    p.AssemblyLinearVelocity = Vector3.zero
+                    p.AssemblyAngularVelocity = Vector3.zero
+                end
+            end
+            obj:PivotTo(destino)
+        elseif obj:IsA("BasePart") then
+            obj.AssemblyLinearVelocity = Vector3.zero
+            obj.AssemblyAngularVelocity = Vector3.zero
+            obj.CFrame = destino
+        elseif obj:IsA("Humanoid") and obj.Parent then
+            for _, p in ipairs(obj.Parent:GetDescendants()) do
+                if p:IsA("BasePart") then
+                    p.AssemblyLinearVelocity = Vector3.zero
+                    p.AssemblyAngularVelocity = Vector3.zero
+                end
+            end
+            obj.Parent:PivotTo(destino)
+        end
+    end)
 end
-local function v75(v253, v254, v255)
-	if not v253 then
-		return nil;
-	end
-	TABLE_TableIndirection["v256%0"] = math.sin(os.clock() * v254);
-	if ((v255 == "Na Cara") or (2253 == 1851)) then
-		TABLE_TableIndirection["v423%0"] = v253:FindFirstChild("Head");
-		TABLE_TableIndirection["v424%0"] = TABLE_TableIndirection["v423%0"] or v253:FindFirstChild("HumanoidRootPart");
-		if (not TABLE_TableIndirection["v424%0"] or not TABLE_TableIndirection["v424%0"].Parent or (83 > 1780)) then
-			return nil;
-		end
-		TABLE_TableIndirection["v425%0"] = -1.65 - (TABLE_TableIndirection["v256%0"] * 0.75);
-		TABLE_TableIndirection["v426%0"] = (TABLE_TableIndirection["v423%0"] and (-0.15 + (TABLE_TableIndirection["v256%0"] * 0.12))) or (1.35 + (TABLE_TableIndirection["v256%0"] * 0.12));
-		return TABLE_TableIndirection["v424%0"].CFrame * CFrame.new(0, TABLE_TableIndirection["v426%0"], TABLE_TableIndirection["v425%0"]) * CFrame.Angles(0, math.pi, 0);
-	else
-		TABLE_TableIndirection["v427%0"] = v253:FindFirstChild("HumanoidRootPart") or v253:FindFirstChild("UpperTorso") or v253:FindFirstChild("Torso");
-		if ((546 <= 1077) and (not TABLE_TableIndirection["v427%0"] or not TABLE_TableIndirection["v427%0"].Parent)) then
-			return nil;
-		end
-		TABLE_TableIndirection["v428%0"] = 1.65 + (TABLE_TableIndirection["v256%0"] * 0.85);
-		TABLE_TableIndirection["v429%0"] = -0.55 + (TABLE_TableIndirection["v256%0"] * 0.12);
-		return TABLE_TableIndirection["v427%0"].CFrame * CFrame.new(0, TABLE_TableIndirection["v429%0"], TABLE_TableIndirection["v428%0"]);
-	end
+
+local function calcularDestinoBaby(targetChar, velocidade, localEscolhido, colado)
+    if not targetChar then return nil end
+    local onda = math.sin(os.clock() * velocidade)
+
+    if localEscolhido == "Na Cara" then
+        local head = targetChar:FindFirstChild("Head")
+        local ref = head or targetChar:FindFirstChild("HumanoidRootPart")
+        if not ref or not ref.Parent then return nil end
+
+        local baseZ = colado and -0.82 or -1.65
+        local ampZ = colado and 0.25 or 0.75
+        local offsetZ = baseZ - (onda * ampZ)
+        local offsetY = head and (-0.10 + (onda * 0.12)) or (1.35 + (onda * 0.12))
+        return ref.CFrame * CFrame.new(0, offsetY, offsetZ) * CFrame.Angles(0, math.pi, 0)
+    else
+        local hrp = targetChar:FindFirstChild("HumanoidRootPart") or targetChar:FindFirstChild("UpperTorso") or targetChar:FindFirstChild("Torso")
+        if not hrp or not hrp.Parent then return nil end
+
+        local baseZ = colado and 0.85 or 1.65
+        local ampZ = colado and 0.28 or 0.85
+        local offsetZ = baseZ + (onda * ampZ)
+        local offsetY = (colado and -0.35 or -0.55) + (onda * 0.12)
+        return hrp.CFrame * CFrame.new(0, offsetY, offsetZ)
+    end
 end
-local function v76(v257, v258)
-	if (not v257 or not v257.Character or (996 > 4301) or (2087 > 2372)) then
-		return false, "Escolha um alvo válido primeiro!";
-	end
-	TABLE_TableIndirection["v259%0"] = v257.Character;
-	TABLE_TableIndirection["v260%0"] = TABLE_TableIndirection["v259%0"]:FindFirstChild("HumanoidRootPart") or TABLE_TableIndirection["v259%0"]:FindFirstChild("Head");
-	if (((4070 > 687) and not TABLE_TableIndirection["v260%0"]) or (4445 < 4149)) then
-		return false, "Personagem do alvo não encontrado.";
-	end
-	TABLE_TableIndirection["v261%0"] = v73();
-	if (not TABLE_TableIndirection["v261%0"] or not TABLE_TableIndirection["v261%0"].Parent or (1818 == 85)) then
-		return false, "Spawne o baby manualmente primeiro!";
-	end
-	TABLE_TableIndirection["v70%0"] = TABLE_TableIndirection["v70%0"] + 1;
-	TABLE_TableIndirection["v262%0"] = TABLE_TableIndirection["v70%0"];
-	task.spawn(function()
-		while TABLE_TableIndirection["v70%0"] == TABLE_TableIndirection["v262%0"] do
-			if (not v257.Parent or not v257.Character or (656 >= 3330)) then
-				break;
-			end
-			TABLE_TableIndirection["v430%0"] = v73();
-			if ((TABLE_TableIndirection["v430%0"] and TABLE_TableIndirection["v430%0"].Parent) or (2492 <= 335)) then
-				TABLE_TableIndirection["v506%0"] = v75(v257.Character, TABLE_TableIndirection["v71%0"], TABLE_TableIndirection["v72%0"]);
-				if ((4322 >= 2562) and TABLE_TableIndirection["v506%0"]) then
-					v74(TABLE_TableIndirection["v430%0"], TABLE_TableIndirection["v506%0"]);
-				end
-			else
-				break;
-			end
-			TABLE_TableIndirection["v2%0"].Heartbeat:Wait();
-		end
-	end);
-	return true, nil;
+
+local function enviarBabyParaAlvo(alvoPlayer, _nomeBaby)
+    if not alvoPlayer or not alvoPlayer.Character then
+        return false, "Escolha um alvo válido primeiro!"
+    end
+
+    local tChar = alvoPlayer.Character
+    local tRef = tChar:FindFirstChild("HumanoidRootPart") or tChar:FindFirstChild("Head")
+    if not tRef then
+        return false, "Personagem do alvo não encontrado."
+    end
+
+    local fcInicial = buscarFollowCharacterManual()
+    if not fcInicial or not fcInicial.Parent then
+        return false, "Pegue/spawne o baby manualmente primeiro!"
+    end
+
+    babyFollowToken = babyFollowToken + 1
+    local meuToken = babyFollowToken
+
+    task.spawn(function()
+        while babyFollowToken == meuToken do
+            if not alvoPlayer.Parent or not alvoPlayer.Character then break end
+
+            local fc = buscarFollowCharacterManual()
+            if fc and fc.Parent then
+                local destBaby = calcularDestinoBaby(
+                    alvoPlayer.Character,
+                    babyOscSpeed,
+                    babyLocalEscolhido,
+                    babyColado
+                )
+                if destBaby then
+                    posicionarObjetoEmCFrame(fc, destBaby)
+                end
+            else
+                break
+            end
+
+            RunService.Heartbeat:Wait()
+        end
+    end)
+
+    return true, nil
 end
-local function v77()
-	TABLE_TableIndirection["v70%0"] = TABLE_TableIndirection["v70%0"] + 1;
-	TABLE_TableIndirection["v263%0"] = TABLE_TableIndirection["v1%0"].Character or workspace:FindFirstChild(TABLE_TableIndirection["v1%0"].Name);
-	TABLE_TableIndirection["v264%0"] = TABLE_TableIndirection["v263%0"] and (TABLE_TableIndirection["v263%0"]:FindFirstChild("HumanoidRootPart") or TABLE_TableIndirection["v263%0"]:FindFirstChild("Head"));
-	TABLE_TableIndirection["v265%0"] = v73();
-	if ((630 < 2127) and TABLE_TableIndirection["v265%0"] and TABLE_TableIndirection["v265%0"].Parent) then
-		if ((TABLE_TableIndirection["v264%0"] and TABLE_TableIndirection["v264%0"].Parent) or (3637 >= 3770)) then
-			v74(TABLE_TableIndirection["v265%0"], TABLE_TableIndirection["v264%0"].CFrame * CFrame.new(0, 0, -2.5));
-		end
-		return true, nil;
-	end
-	return false, "Nenhum baby encontrado no momento.";
+
+local function alternarColarBaby()
+    babyColado = not babyColado
+
+    local fc = buscarFollowCharacterManual()
+    if not fc or not fc.Parent then
+        return babyColado, "Pegue/spawne o baby manualmente primeiro!"
+    end
+
+    if selectedBabyTarget and selectedBabyTarget.Character then
+        local destBaby = calcularDestinoBaby(
+            selectedBabyTarget.Character,
+            babyOscSpeed,
+            babyLocalEscolhido,
+            babyColado
+        )
+        if destBaby then
+            posicionarObjetoEmCFrame(fc, destBaby)
+        end
+    end
+
+    return babyColado, nil
 end
-local function v78(v266)
-	TABLE_TableIndirection["v267%0"] = tonumber(v266);
-	if (not TABLE_TableIndirection["v267%0"] or (2379 > 4578)) then
-		return false, "Digite uma velocidade válida!";
-	end
-	TABLE_TableIndirection["v268%0"] = TABLE_TableIndirection["v6%0"]:FindFirstChild("Remotes");
-	TABLE_TableIndirection["v269%0"] = TABLE_TableIndirection["v268%0"] and TABLE_TableIndirection["v268%0"]:FindFirstChild("SetMaxSpeed");
-	if not TABLE_TableIndirection["v269%0"] then
-		return false, "Remote SetMaxSpeed não encontrado.";
-	end
-	local v270, v271 = pcall(function()
-		if (TABLE_TableIndirection["v269%0"]:IsA("RemoteFunction") or (1938 == 2514)) then
-			TABLE_TableIndirection["v269%0"]:InvokeServer(TABLE_TableIndirection["v267%0"]);
-		elseif (TABLE_TableIndirection["v269%0"]:IsA("RemoteEvent") or (483 > 743)) then
-			TABLE_TableIndirection["v269%0"]:FireServer(TABLE_TableIndirection["v267%0"]);
-		end
-	end);
-	return v270, (v270 and nil) or tostring(v271);
+
+local function removerBabyDoAlvo()
+    babyFollowToken = babyFollowToken + 1
+    babyColado = false
+
+    local myChar = LP.Character or workspace:FindFirstChild(LP.Name)
+    local myHrp = myChar and (myChar:FindFirstChild("HumanoidRootPart") or myChar:FindFirstChild("Head"))
+
+    local fc = buscarFollowCharacterManual()
+    if fc and fc.Parent then
+        if myHrp and myHrp.Parent then
+            posicionarObjetoEmCFrame(fc, myHrp.CFrame * CFrame.new(0, 0, -2.5))
+        end
+        return true, nil
+    end
+
+    return false, "Nenhum baby encontrado no momento."
 end
-local function v79(v272)
-	TABLE_TableIndirection["v273%0"] = tonumber(v272);
-	if not TABLE_TableIndirection["v273%0"] then
-		return false, "Digite um número de turbo válido!";
-	end
-	TABLE_TableIndirection["v274%0"] = TABLE_TableIndirection["v6%0"]:FindFirstChild("Remotes");
-	TABLE_TableIndirection["v275%0"] = TABLE_TableIndirection["v274%0"] and TABLE_TableIndirection["v274%0"]:FindFirstChild("SetTurboAppearance");
-	if ((4255 >= 55) and not TABLE_TableIndirection["v275%0"]) then
-		return false, "Remote SetTurboAppearance não encontrado.";
-	end
-	local v276, v277 = pcall(function()
-		if ((2999 > 1156) and (2454 > 578) and TABLE_TableIndirection["v275%0"]:IsA("RemoteFunction")) then
-			TABLE_TableIndirection["v275%0"]:InvokeServer(TABLE_TableIndirection["v273%0"]);
-		elseif ((2350 > 1155) and TABLE_TableIndirection["v275%0"]:IsA("RemoteEvent")) then
-			TABLE_TableIndirection["v275%0"]:FireServer(TABLE_TableIndirection["v273%0"]);
-		end
-	end);
-	return v276, (v276 and nil) or tostring(v277);
+
+local function enviarVelocidadeCarro(velNum)
+    local num = tonumber(velNum)
+    if not num then return false, "Digite uma velocidade válida!" end
+
+    local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+    local ev = remotes and remotes:FindFirstChild("SetMaxSpeed")
+    if not ev then return false, "Remote SetMaxSpeed não encontrado." end
+
+    local ok, err = pcall(function()
+        if ev:IsA("RemoteFunction") then
+            ev:InvokeServer(num)
+        elseif ev:IsA("RemoteEvent") then
+            ev:FireServer(num)
+        end
+    end)
+    return ok, ok and nil or tostring(err)
 end
-TABLE_TableIndirection["v80%0"] = TABLE_TableIndirection["v0%0"]:CreateWindow({Title="Brocasitx Hub",Icon="layout",Author="",Folder="BrocasitxHubConfigV35",Size=UDim2.fromOffset(580, 450),Transparent=true,Theme="Dark",User={Enabled=true,Anonymous=false}});
-TABLE_TableIndirection["v0%0"]:Notify({Title="Bem-vindo",Content="Bem vindo ao Brocasitx",Icon="star",Duration=5});
-TABLE_TableIndirection["v81%0"] = TABLE_TableIndirection["v80%0"]:Tab({Title="Créditos do Hub",Icon="info"});
-TABLE_TableIndirection["v81%0"]:Paragraph({Title="Brocasitx Suporte",Desc="https://discord.gg/zdDKdgbs2T"});
-TABLE_TableIndirection["v81%0"]:Button({Title="Entrar (Copiar Link)",Callback=function()
-	if setclipboard then
-		setclipboard("https://discord.gg/zdDKdgbs2T");
-		TABLE_TableIndirection["v0%0"]:Notify({Title="Copiado",Content="Link do Discord copiado!",Icon="copy",Duration=3});
-	end
-end});
-TABLE_TableIndirection["v81%0"]:Paragraph({Title="Executor",Desc="Delta"});
-TABLE_TableIndirection["v81%0"]:Section({Title="versao do Hub V1"});
-TABLE_TableIndirection["v81%0"]:Paragraph({Title="Criadores",Desc="Vt, PHZX"});
-TABLE_TableIndirection["v82%0"] = TABLE_TableIndirection["v80%0"]:Tab({Title="Início",Icon="home",Image="rbxassetid://7072717697"});
-TABLE_TableIndirection["v82%0"]:Slider({Title="Speed",Step=1,Value={Min=16,Max=200,Default=16},Callback=function(v278)
-	TABLE_TableIndirection["v64%0"] = tonumber(v278) or 16;
-	TABLE_TableIndirection["v279%0"] = TABLE_TableIndirection["v1%0"].Character;
-	TABLE_TableIndirection["v280%0"] = TABLE_TableIndirection["v279%0"] and TABLE_TableIndirection["v279%0"]:FindFirstChildOfClass("Humanoid");
-	v66(TABLE_TableIndirection["v280%0"], TABLE_TableIndirection["v64%0"]);
-end});
-TABLE_TableIndirection["v82%0"]:Slider({Title="Jump",Step=1,Value={Min=50,Max=200,Default=50},Callback=function(v281)
-	TABLE_TableIndirection["v65%0"] = tonumber(v281) or 50;
-	TABLE_TableIndirection["v282%0"] = TABLE_TableIndirection["v1%0"].Character;
-	TABLE_TableIndirection["v283%0"] = TABLE_TableIndirection["v282%0"] and TABLE_TableIndirection["v282%0"]:FindFirstChildOfClass("Humanoid");
-	v67(TABLE_TableIndirection["v283%0"], TABLE_TableIndirection["v65%0"]);
-end});
-local v83, v84 = {}, {};
-TABLE_TableIndirection["v85%0"] = nil;
-TABLE_TableIndirection["v86%0"] = false;
-TABLE_TableIndirection["v87%0"] = "";
-local function v88()
-	local v284, v285 = {}, {};
-	for v399, v400 in ipairs(TABLE_TableIndirection["v3%0"]:GetPlayers()) do
-		if ((4029 <= 4853) and (930 < 4458) and (v400 ~= TABLE_TableIndirection["v1%0"])) then
-			v284[v400.Name] = v400;
-			table.insert(v285, v400.Name);
-		end
-	end
-	table.sort(v285);
-	return v284, v285;
+
+local function enviarTurboCarro(turboNum)
+    local num = tonumber(turboNum)
+    if not num then return false, "Digite um número de turbo válido!" end
+
+    local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+    local ev = remotes and remotes:FindFirstChild("SetTurboAppearance")
+    if not ev then return false, "Remote SetTurboAppearance não encontrado." end
+
+    local ok, err = pcall(function()
+        if ev:IsA("RemoteFunction") then
+            ev:InvokeServer(num)
+        elseif ev:IsA("RemoteEvent") then
+            ev:FireServer(num)
+        end
+    end)
+    return ok, ok and nil or tostring(err)
 end
-TABLE_TableIndirection["v89%0"] = TABLE_TableIndirection["v82%0"]:Dropdown({Title="Escolher Alvo",Values={},Callback=function(v286)
-	TABLE_TableIndirection["v85%0"] = v83[v286];
-end});
-local function v90(v288)
-	v83, v84 = v88();
-	if (TABLE_TableIndirection["v85%0"] and not v83[TABLE_TableIndirection["v85%0"].Name]) then
-		TABLE_TableIndirection["v85%0"] = nil;
-		if TABLE_TableIndirection["v86%0"] then
-			TABLE_TableIndirection["v86%0"] = false;
-			TABLE_TableIndirection["v507%0"] = workspace.CurrentCamera;
-			TABLE_TableIndirection["v508%0"] = TABLE_TableIndirection["v1%0"].Character;
-			TABLE_TableIndirection["v509%0"] = TABLE_TableIndirection["v508%0"] and TABLE_TableIndirection["v508%0"]:FindFirstChildOfClass("Humanoid");
-			if ((TABLE_TableIndirection["v507%0"] and TABLE_TableIndirection["v509%0"]) or (516 > 3434)) then
-				pcall(function()
-					TABLE_TableIndirection["v507%0"].CameraType = Enum.CameraType.Custom;
-					TABLE_TableIndirection["v507%0"].CameraSubject = TABLE_TableIndirection["v509%0"];
-				end);
-			end
-		end
-	end
-	TABLE_TableIndirection["v289%0"] = table.concat(v84, "|");
-	if ((TABLE_TableIndirection["v289%0"] ~= TABLE_TableIndirection["v87%0"]) or v288) then
-		TABLE_TableIndirection["v87%0"] = TABLE_TableIndirection["v289%0"];
-		pcall(function()
-			if ((662 <= 972) and TABLE_TableIndirection["v89%0"] and (type(TABLE_TableIndirection["v89%0"].Refresh) == "function")) then
-				TABLE_TableIndirection["v89%0"]:Refresh(v84, true);
-			end
-		end);
-	end
-	if v288 then
-		TABLE_TableIndirection["v0%0"]:Notify({Title="Início",Content="Lista de jogadores atualizada!",Icon="refresh-cw",Duration=2});
-	end
+
+-- =========================================================
+-- JANELA PRINCIPAL REDZ UI (SO NO BOTAO DO REDZ HUB)
+-- =========================================================
+local Window = redzlib:MakeWindow({
+    Title = "Brocasitx Hub",
+    SubTitle = "versao do Hub V1",
+    SaveFolder = "BrocasitxHubRedzConfig"
+})
+
+pcall(function()
+    Window:AddMinimizeButton({
+        Button = {
+            Image = "rbxassetid://" .. REDZ_BOTAO_ID,
+            BackgroundTransparency = 0
+        },
+        Corner = { CornerRadius = UDim.new(0, 8) }
+    })
+end)
+
+notificar("Bem-vindo", "Bem vindo ao Brocasitx", 5)
+
+local CreditsTab = Window:MakeTab({ "Créditos do Hub", "info" })
+CreditsTab:AddParagraph({ "Brocasitx Suporte", "https://discord.gg/zdDKdgbs2T" })
+CreditsTab:AddButton({
+    "Entrar (Copiar Link)",
+    function()
+        if setclipboard then
+            setclipboard("https://discord.gg/zdDKdgbs2T")
+            notificar("Copiado", "Link do Discord copiado!", 3)
+        end
+    end
+})
+CreditsTab:AddParagraph({ "Executor", "Delta" })
+CreditsTab:AddSection({ "versao do Hub V1" })
+CreditsTab:AddParagraph({ "Criadores", "Vt, PHZX" })
+
+local HomeTab = Window:MakeTab({ "Início", "home" })
+
+HomeTab:AddSlider({
+    Name = "Speed",
+    Min = 16,
+    Max = 200,
+    Increase = 1,
+    Default = 16,
+    Callback = function(Value)
+        currentSpeedValue = tonumber(Value) or 16
+        local char = LP.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        aplicarSpeedNoHumanoid(hum, currentSpeedValue)
+    end
+})
+
+HomeTab:AddSlider({
+    Name = "Jump",
+    Min = 50,
+    Max = 200,
+    Increase = 1,
+    Default = 50,
+    Callback = function(Value)
+        currentJumpValue = tonumber(Value) or 50
+        local char = LP.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        aplicarJumpNoHumanoid(hum, currentJumpValue)
+    end
+})
+
+local homePlayersMap, homePlayerNames = {}, {}
+local selectedHomeTarget = nil
+local viewingHomeTarget = false
+local ultimoSnapshotListaHome = ""
+
+local function montarListaHome()
+    local mapa, nomes = {}, {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP then
+            mapa[p.Name] = p
+            table.insert(nomes, p.Name)
+        end
+    end
+    table.sort(nomes)
+    return mapa, nomes
 end
-v90(false);
-TABLE_TableIndirection["v3%0"].PlayerAdded:Connect(function()
-	task.wait(0.2);
-	v90(false);
-end);
-TABLE_TableIndirection["v3%0"].PlayerRemoving:Connect(function()
-	task.wait(0.2);
-	v90(false);
-end);
+
+homePlayersMap, homePlayerNames = montarListaHome()
+
+local HomeTargetDropdown = HomeTab:AddDropdown({
+    Name = "Escolher Alvo",
+    Options = homePlayerNames,
+    Callback = function(opt)
+        selectedHomeTarget = homePlayersMap[opt]
+    end
+})
+
+local function atualizarListaHome(forcarNotificacao)
+    homePlayersMap, homePlayerNames = montarListaHome()
+    if selectedHomeTarget and not homePlayersMap[selectedHomeTarget.Name] then
+        selectedHomeTarget = nil
+        if viewingHomeTarget then
+            viewingHomeTarget = false
+            local cam = workspace.CurrentCamera
+            local myChar = LP.Character
+            local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+            if cam and myHum then
+                pcall(function()
+                    cam.CameraType = Enum.CameraType.Custom
+                    cam.CameraSubject = myHum
+                end)
+            end
+        end
+    end
+
+    local assinatura = table.concat(homePlayerNames, "|")
+    if assinatura ~= ultimoSnapshotListaHome or forcarNotificacao then
+        ultimoSnapshotListaHome = assinatura
+        atualizarDropdownRedz(HomeTargetDropdown, homePlayerNames)
+    end
+
+    if forcarNotificacao then
+        notificar("Início", "Lista de jogadores atualizada!", 2)
+    end
+end
+
+atualizarListaHome(false)
+
+Players.PlayerAdded:Connect(function()
+    task.wait(0.2)
+    atualizarListaHome(false)
+end)
+
+Players.PlayerRemoving:Connect(function()
+    task.wait(0.2)
+    atualizarListaHome(false)
+end)
+
 task.spawn(function()
-	while task.wait(2) do
-		v90(false);
-	end
-end);
-TABLE_TableIndirection["v2%0"].RenderStepped:Connect(function()
-	if ((4046 >= 3033) and (4370 == 4370) and not TABLE_TableIndirection["v86%0"]) then
-		return;
-	end
-	TABLE_TableIndirection["v290%0"] = workspace.CurrentCamera;
-	if (not TABLE_TableIndirection["v290%0"] or (2719 <= 1447)) then
-		return;
-	end
-	if ((TABLE_TableIndirection["v85%0"] and TABLE_TableIndirection["v85%0"].Parent and TABLE_TableIndirection["v85%0"].Character) or (4762 <= 861)) then
-		TABLE_TableIndirection["v431%0"] = TABLE_TableIndirection["v85%0"].Character:FindFirstChildOfClass("Humanoid");
-		if (TABLE_TableIndirection["v431%0"] or (4134 < 3926)) then
-			pcall(function()
-				TABLE_TableIndirection["v290%0"].CameraType = Enum.CameraType.Custom;
-				TABLE_TableIndirection["v290%0"].CameraSubject = TABLE_TableIndirection["v431%0"];
-			end);
-		end
-	else
-		TABLE_TableIndirection["v86%0"] = false;
-		TABLE_TableIndirection["v432%0"] = TABLE_TableIndirection["v1%0"].Character;
-		TABLE_TableIndirection["v433%0"] = TABLE_TableIndirection["v432%0"] and TABLE_TableIndirection["v432%0"]:FindFirstChildOfClass("Humanoid");
-		if (TABLE_TableIndirection["v433%0"] or (164 >= 2785)) then
-			pcall(function()
-				TABLE_TableIndirection["v290%0"].CameraType = Enum.CameraType.Custom;
-				TABLE_TableIndirection["v290%0"].CameraSubject = TABLE_TableIndirection["v433%0"];
-			end);
-		end
-	end
-end);
-TABLE_TableIndirection["v82%0"]:Button({Title="Atualizar Lista",Callback=function()
-	v90(true);
-end});
-TABLE_TableIndirection["v82%0"]:Button({Title="View",Callback=function()
-	TABLE_TableIndirection["v291%0"] = workspace.CurrentCamera;
-	if TABLE_TableIndirection["v86%0"] then
-		TABLE_TableIndirection["v86%0"] = false;
-		TABLE_TableIndirection["v434%0"] = TABLE_TableIndirection["v1%0"].Character;
-		TABLE_TableIndirection["v435%0"] = TABLE_TableIndirection["v434%0"] and TABLE_TableIndirection["v434%0"]:FindFirstChildOfClass("Humanoid");
-		if ((TABLE_TableIndirection["v291%0"] and TABLE_TableIndirection["v435%0"]) or (1412 == 4264) or (525 == 2109)) then
-			pcall(function()
-				TABLE_TableIndirection["v291%0"].CameraType = Enum.CameraType.Custom;
-				TABLE_TableIndirection["v291%0"].CameraSubject = TABLE_TableIndirection["v435%0"];
-			end);
-		end
-		TABLE_TableIndirection["v0%0"]:Notify({Title="View",Content="Câmera voltou para você!",Icon="eye-off",Duration=3});
-		return;
-	end
-	if (not TABLE_TableIndirection["v85%0"] or not TABLE_TableIndirection["v85%0"].Character) then
-		TABLE_TableIndirection["v0%0"]:Notify({Title="View",Content="Escolha um alvo válido primeiro!",Icon="x",Duration=3});
-		return;
-	end
-	TABLE_TableIndirection["v292%0"] = TABLE_TableIndirection["v85%0"].Character:FindFirstChildOfClass("Humanoid");
-	if (TABLE_TableIndirection["v291%0"] and TABLE_TableIndirection["v292%0"]) then
-		TABLE_TableIndirection["v86%0"] = true;
-		pcall(function()
-			TABLE_TableIndirection["v291%0"].CameraType = Enum.CameraType.Custom;
-			TABLE_TableIndirection["v291%0"].CameraSubject = TABLE_TableIndirection["v292%0"];
-		end);
-		TABLE_TableIndirection["v0%0"]:Notify({Title="View",Content=("Espectando " .. TABLE_TableIndirection["v85%0"].Name .. "!"),Icon="eye",Duration=3});
-	end
-end});
-TABLE_TableIndirection["v82%0"]:Button({Title="Teleportar pro Jogador",Callback=function()
-	if ((33 == 33) and (not TABLE_TableIndirection["v85%0"] or not TABLE_TableIndirection["v85%0"].Character)) then
-		TABLE_TableIndirection["v0%0"]:Notify({Title="Teleportar",Content="Escolha um alvo válido primeiro!",Icon="x",Duration=3});
-		return;
-	end
-	TABLE_TableIndirection["v293%0"] = TABLE_TableIndirection["v85%0"].Character:FindFirstChild("HumanoidRootPart");
-	TABLE_TableIndirection["v294%0"] = TABLE_TableIndirection["v1%0"].Character;
-	TABLE_TableIndirection["v295%0"] = TABLE_TableIndirection["v294%0"] and TABLE_TableIndirection["v294%0"]:FindFirstChild("HumanoidRootPart");
-	if (TABLE_TableIndirection["v293%0"] and TABLE_TableIndirection["v295%0"]) then
-		pcall(function()
-			TABLE_TableIndirection["v295%0"].AssemblyLinearVelocity = Vector3.zero;
-			TABLE_TableIndirection["v295%0"].AssemblyAngularVelocity = Vector3.zero;
-			TABLE_TableIndirection["v295%0"].CFrame = TABLE_TableIndirection["v293%0"].CFrame * CFrame.new(0, 0, -3.5);
-		end);
-		TABLE_TableIndirection["v0%0"]:Notify({Title="Teleportar",Content=("Teleportado para " .. TABLE_TableIndirection["v85%0"].Name .. "!"),Icon="navigation",Duration=3});
-	else
-		TABLE_TableIndirection["v0%0"]:Notify({Title="Teleportar",Content="Alvo sem posição disponível.",Icon="x",Duration=3});
-	end
-end});
-TABLE_TableIndirection["v91%0"] = TABLE_TableIndirection["v80%0"]:Tab({Title="Vehicle",Icon="car"});
-TABLE_TableIndirection["v92%0"] = TABLE_TableIndirection["v91%0"]:Input({Title="Velocidade do Carro",Value="200",Placeholder="Ex: 200 ou 500",Callback=function(v296)
-	TABLE_TableIndirection["v297%0"] = tonumber(v296);
-	if TABLE_TableIndirection["v297%0"] then
-		local v436, v437 = v78(TABLE_TableIndirection["v297%0"]);
-		if (not v436 or (3168 < 2153)) then
-			TABLE_TableIndirection["v0%0"]:Notify({Title="Vehicle",Content=v437,Icon="x",Duration=3});
-		end
-	end
-end});
-TABLE_TableIndirection["v91%0"]:Button({Title="Aplicar Velocidade",Callback=function()
-	local v298, v299 = v78(TABLE_TableIndirection["v92%0"].Value);
-	TABLE_TableIndirection["v0%0"]:Notify({Title=((v298 and "Vehicle") or "Erro"),Content=((v298 and ("Velocidade enviada: " .. tostring(TABLE_TableIndirection["v92%0"].Value))) or v299),Icon=((v298 and "gauge") or "x"),Duration=3});
-end});
-TABLE_TableIndirection["v93%0"] = TABLE_TableIndirection["v91%0"]:Input({Title="Turbo",Value="3",Placeholder="Ex: 3 (ou passe de 3)",Callback=function(v300)
-	TABLE_TableIndirection["v301%0"] = tonumber(v300);
-	if ((3054 <= 4015) and (TABLE_TableIndirection["v301%0"] or (4976 < 1332))) then
-		local v438, v439 = v79(TABLE_TableIndirection["v301%0"]);
-		if not v438 then
-			TABLE_TableIndirection["v0%0"]:Notify({Title="Vehicle",Content=v439,Icon="x",Duration=3});
-		end
-	end
-end});
-TABLE_TableIndirection["v91%0"]:Button({Title="Aplicar Turbo",Callback=function()
-	local v302, v303 = v79(TABLE_TableIndirection["v93%0"].Value);
-	TABLE_TableIndirection["v0%0"]:Notify({Title=((v302 and "Vehicle") or "Erro"),Content=((v302 and ("Turbo enviado: " .. tostring(TABLE_TableIndirection["v93%0"].Value))) or v303),Icon=((v302 and "zap") or "x"),Duration=3});
-end});
-TABLE_TableIndirection["v94%0"] = TABLE_TableIndirection["v80%0"]:Tab({Title="Troll",Icon="flame"});
-local v95, v96 = {}, {};
-TABLE_TableIndirection["v97%0"] = nil;
-local function v98()
-	local v304, v305 = {}, {};
-	for v401, v402 in ipairs(TABLE_TableIndirection["v3%0"]:GetPlayers()) do
-		if ((1871 < 3382) and (4628 == 4628) and (v402 ~= TABLE_TableIndirection["v1%0"])) then
-			v304[v402.Name] = v402;
-			table.insert(v305, v402.Name);
-		end
-	end
-	table.sort(v305);
-	return v304, v305;
+    while task.wait(2) do
+        atualizarListaHome(false)
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if not viewingHomeTarget then return end
+    local cam = workspace.CurrentCamera
+    if not cam then return end
+
+    if selectedHomeTarget and selectedHomeTarget.Parent and selectedHomeTarget.Character then
+        local tHum = selectedHomeTarget.Character:FindFirstChildOfClass("Humanoid")
+        if tHum then
+            pcall(function()
+                cam.CameraType = Enum.CameraType.Custom
+                cam.CameraSubject = tHum
+            end)
+        end
+    else
+        viewingHomeTarget = false
+        local myChar = LP.Character
+        local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+        if myHum then
+            pcall(function()
+                cam.CameraType = Enum.CameraType.Custom
+                cam.CameraSubject = myHum
+            end)
+        end
+    end
+end)
+
+HomeTab:AddButton({
+    "Atualizar Lista",
+    function()
+        atualizarListaHome(true)
+    end
+})
+
+HomeTab:AddButton({
+    "View",
+    function()
+        local cam = workspace.CurrentCamera
+        if viewingHomeTarget then
+            viewingHomeTarget = false
+            local myChar = LP.Character
+            local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+            if cam and myHum then
+                pcall(function()
+                    cam.CameraType = Enum.CameraType.Custom
+                    cam.CameraSubject = myHum
+                end)
+            end
+            notificar("View", "Câmera voltou para você!", 3)
+            return
+        end
+
+        if not selectedHomeTarget or not selectedHomeTarget.Character then
+            notificar("View", "Escolha um alvo válido primeiro!", 3)
+            return
+        end
+
+        local tHum = selectedHomeTarget.Character:FindFirstChildOfClass("Humanoid")
+        if cam and tHum then
+            viewingHomeTarget = true
+            pcall(function()
+                cam.CameraType = Enum.CameraType.Custom
+                cam.CameraSubject = tHum
+            end)
+            notificar("View", "Espectando " .. selectedHomeTarget.Name .. "!", 3)
+        end
+    end
+})
+
+HomeTab:AddButton({
+    "Teleportar pro Jogador",
+    function()
+        if not selectedHomeTarget or not selectedHomeTarget.Character then
+            notificar("Teleportar", "Escolha um alvo válido primeiro!", 3)
+            return
+        end
+
+        local tHrp = selectedHomeTarget.Character:FindFirstChild("HumanoidRootPart")
+        local myChar = LP.Character
+        local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+
+        if tHrp and myHrp then
+            pcall(function()
+                myHrp.AssemblyLinearVelocity = Vector3.zero
+                myHrp.AssemblyAngularVelocity = Vector3.zero
+                myHrp.CFrame = tHrp.CFrame * CFrame.new(0, 0, -3.5)
+            end)
+            notificar("Teleportar", "Teleportado para " .. selectedHomeTarget.Name .. "!", 3)
+        else
+            notificar("Teleportar", "Alvo sem posição disponível.", 3)
+        end
+    end
+})
+
+local VehicleTab = Window:MakeTab({ "Vehicle", "car" })
+local carSpeedValue = "200"
+local carTurboValue = "3"
+
+VehicleTab:AddTextBox({
+    Name = "Velocidade do Carro",
+    Description = "Ex: 200 ou 500",
+    PlaceholderText = "Ex: 200 ou 500",
+    Callback = function(txt)
+        carSpeedValue = tostring(txt or "")
+        local num = tonumber(txt)
+        if num then
+            local ok, err = enviarVelocidadeCarro(num)
+            if not ok then
+                notificar("Vehicle", err, 3)
+            end
+        end
+    end
+})
+
+VehicleTab:AddButton({
+    "Aplicar Velocidade",
+    function()
+        local ok, err = enviarVelocidadeCarro(carSpeedValue)
+        notificar(ok and "Vehicle" or "Erro", ok and ("Velocidade enviada: " .. tostring(carSpeedValue)) or err, 3)
+    end
+})
+
+VehicleTab:AddTextBox({
+    Name = "Turbo",
+    Description = "Ex: 3 (ou passe de 3)",
+    PlaceholderText = "Ex: 3 (ou passe de 3)",
+    Callback = function(txt)
+        carTurboValue = tostring(txt or "")
+        local num = tonumber(txt)
+        if num then
+            local ok, err = enviarTurboCarro(num)
+            if not ok then
+                notificar("Vehicle", err, 3)
+            end
+        end
+    end
+})
+
+VehicleTab:AddButton({
+    "Aplicar Turbo",
+    function()
+        local ok, err = enviarTurboCarro(carTurboValue)
+        notificar(ok and "Vehicle" or "Erro", ok and ("Turbo enviado: " .. tostring(carTurboValue)) or err, 3)
+    end
+})
+
+local TrollTab = Window:MakeTab({ "Troll", "flame" })
+local trollPlayersMap, trollPlayerNames = {}, {}
+local selectedTrollTarget = nil
+
+local function getListaTrollJogadores()
+    local mapa, nomes = {}, {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP then
+            mapa[p.Name] = p
+            table.insert(nomes, p.Name)
+        end
+    end
+    table.sort(nomes)
+    return mapa, nomes
 end
-v95, v96 = v98();
-TABLE_TableIndirection["v99%0"] = TABLE_TableIndirection["v94%0"]:Dropdown({Title="Escolher Alvo",Values=v96,Callback=function(v306)
-	TABLE_TableIndirection["v97%0"] = v95[v306];
-end});
-TABLE_TableIndirection["v94%0"]:Button({Title="Atualizar Lista",Callback=function()
-	v95, v96 = v98();
-	if ((1293 <= 2166) and TABLE_TableIndirection["v97%0"] and not v95[TABLE_TableIndirection["v97%0"].Name]) then
-		TABLE_TableIndirection["v97%0"] = nil;
-	end
-	pcall(function()
-		if ((TABLE_TableIndirection["v99%0"] and (type(TABLE_TableIndirection["v99%0"].Refresh) == "function")) or (2579 < 123)) then
-			TABLE_TableIndirection["v99%0"]:Refresh(v96, true);
-		end
-	end);
-	TABLE_TableIndirection["v0%0"]:Notify({Title="Troll",Content="Lista de jogadores atualizada!",Icon="refresh-cw",Duration=2});
-end});
-TABLE_TableIndirection["v94%0"]:Button({Title="Fling",Callback=function()
-	if not TABLE_TableIndirection["v97%0"] then
-		TABLE_TableIndirection["v0%0"]:Notify({Title="Troll",Content="Escolha um alvo primeiro!",Icon="x",Duration=3});
-		return;
-	end
-	local v308, v309 = v69(TABLE_TableIndirection["v97%0"]);
-	TABLE_TableIndirection["v0%0"]:Notify({Title=((v308 and "Troll") or "Erro"),Content=((v308 and ("Fling aplicado em " .. TABLE_TableIndirection["v97%0"].Name .. "!")) or v309),Icon=((v308 and "flame") or "x"),Duration=3});
-end});
-local v100, v101 = {}, {};
-TABLE_TableIndirection["v102%0"] = nil;
-local function v103()
-	local v310, v311 = {}, {};
-	for v403, v404 in ipairs(TABLE_TableIndirection["v3%0"]:GetPlayers()) do
-		if ((v404 ~= TABLE_TableIndirection["v1%0"]) or (54 == 395)) then
-			v310[v404.Name] = v404;
-			table.insert(v311, v404.Name);
-		end
-	end
-	table.sort(v311);
-	return v310, v311;
+
+trollPlayersMap, trollPlayerNames = getListaTrollJogadores()
+
+local TrollTargetDropdown = TrollTab:AddDropdown({
+    Name = "Escolher Alvo",
+    Options = trollPlayerNames,
+    Callback = function(opt)
+        selectedTrollTarget = trollPlayersMap[opt]
+    end
+})
+
+TrollTab:AddButton({
+    "Atualizar Lista",
+    function()
+        trollPlayersMap, trollPlayerNames = getListaTrollJogadores()
+        if selectedTrollTarget and not trollPlayersMap[selectedTrollTarget.Name] then
+            selectedTrollTarget = nil
+        end
+        atualizarDropdownRedz(TrollTargetDropdown, trollPlayerNames)
+        notificar("Troll", "Lista de jogadores atualizada!", 2)
+    end
+})
+
+TrollTab:AddButton({
+    "Fling",
+    function()
+        if not selectedTrollTarget then
+            notificar("Troll", "Escolha um alvo primeiro!", 3)
+            return
+        end
+        local ok, err = executarFlingComCarrinho(selectedTrollTarget)
+        notificar(ok and "Troll" or "Erro", ok and ("Fling aplicado em " .. selectedTrollTarget.Name .. "!") or err, 3)
+    end
+})
+
+local babyPlayersMap, babyPlayerNames = {}, {}
+local selectedBabyTarget = nil
+local babyNameValue = "BabyBoy"
+
+local function getListaBabyJogadores()
+    local mapa, nomes = {}, {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP then
+            mapa[p.Name] = p
+            table.insert(nomes, p.Name)
+        end
+    end
+    table.sort(nomes)
+    return mapa, nomes
 end
-v100, v101 = v103();
-TABLE_TableIndirection["v104%0"] = TABLE_TableIndirection["v94%0"]:Dropdown({Title="Escolher Alvo (Baby)",Values=v101,Callback=function(v312)
-	TABLE_TableIndirection["v102%0"] = v100[v312];
-end});
-TABLE_TableIndirection["v94%0"]:Button({Title="Atualizar Lista",Callback=function()
-	v100, v101 = v103();
-	if ((TABLE_TableIndirection["v102%0"] and not v100[TABLE_TableIndirection["v102%0"].Name]) or (846 >= 2368)) then
-		TABLE_TableIndirection["v102%0"] = nil;
-	end
-	pcall(function()
-		if ((82 == 82) and TABLE_TableIndirection["v104%0"] and (type(TABLE_TableIndirection["v104%0"].Refresh) == "function")) then
-			TABLE_TableIndirection["v104%0"]:Refresh(v101, true);
-		end
-	end);
-	TABLE_TableIndirection["v0%0"]:Notify({Title="Troll",Content="Lista de alvos do baby atualizada!",Icon="refresh-cw",Duration=2});
-end});
-TABLE_TableIndirection["v105%0"] = TABLE_TableIndirection["v94%0"]:Input({Title="Nome do Baby",Value="BabyBoy",Placeholder="Ex: BabyBoy ou BabyGirl"});
-TABLE_TableIndirection["v94%0"]:Button({Title="Enviar Baby pro Alvo",Callback=function()
-	local v314, v315 = v76(TABLE_TableIndirection["v102%0"], TABLE_TableIndirection["v105%0"].Value);
-	TABLE_TableIndirection["v0%0"]:Notify({Title=((v314 and "Troll") or "Erro"),Content=((v314 and ("Baby enviado em " .. TABLE_TableIndirection["v102%0"].Name .. "!")) or v315),Icon=((v314 and "baby") or "x"),Duration=3});
-end});
-TABLE_TableIndirection["v94%0"]:Button({Title="Remover Baby",Callback=function()
-	local v316, v317 = v77();
-	TABLE_TableIndirection["v0%0"]:Notify({Title=((v316 and "Troll") or "Erro"),Content=((v316 and "Baby removido do alvo!") or v317),Icon=((v316 and "trash-2") or "x"),Duration=3});
-end});
-TABLE_TableIndirection["v94%0"]:Dropdown({Title="Onde quer o Baby?",Desc="Escolha entre Nas Costas ou Na Cara.",Values={"Nas Costas","Na Cara"},Callback=function(v318)
-	TABLE_TableIndirection["v72%0"] = tostring(v318);
-	TABLE_TableIndirection["v0%0"]:Notify({Title="Baby",Content=("Local do baby definido para: " .. TABLE_TableIndirection["v72%0"]),Icon="map-pin",Duration=2});
-end});
-TABLE_TableIndirection["v94%0"]:Slider({Title="Velocidade do Baby",Step=0.5,Value={Min=1,Max=60,Default=6.5},Callback=function(v319)
-	TABLE_TableIndirection["v71%0"] = tonumber(v319) or 6.5;
-end});
-TABLE_TableIndirection["v106%0"] = TABLE_TableIndirection["v80%0"]:Tab({Title="Música",Icon="music"});
-TABLE_TableIndirection["v107%0"] = {ANTARES="79075022796596",["Quem tá passando é o trem"]="137828639403630",["MONTAGEM AI"]="135958179501280",["Ce Ta Nervosa"]="81744758291664",paris="93483751210667",["Sópra"]="106952008398119",GRWM="108306423679517",["EU APLICO O CHA"]="86866545861125",["Pé Direito"]="127870629973068",["LIGOU NA MADRUGA"]="118906056296419",["VIRA MORTAL"]="85464353244509",["Bafora No Plugg"]="122367698779698",["TROPA DOS SEM AMOR X ONE WAY"]="125784363463466",["MONTAGEM DE BANDIDO 2"]="74967642581893",TITANIC="75498888713958",["MANDELÃO CLASSE A"]="136514868732136",Supremo="123295964560127",Multiplicou="135750430892149",Pantanal="94880156546772",Pai="108808025565103",["AUTOMOTIVO PO_RR4 IZABELA"]="124950663117359"};
-TABLE_TableIndirection["v108%0"] = {};
-for v320 in pairs(TABLE_TableIndirection["v107%0"]) do
-	table.insert(TABLE_TableIndirection["v108%0"], v320);
+
+babyPlayersMap, babyPlayerNames = getListaBabyJogadores()
+
+local BabyTargetDropdown = TrollTab:AddDropdown({
+    Name = "Escolher Alvo (Baby)",
+    Options = babyPlayerNames,
+    Callback = function(opt)
+        selectedBabyTarget = babyPlayersMap[opt]
+    end
+})
+
+TrollTab:AddButton({
+    "Atualizar Lista",
+    function()
+        babyPlayersMap, babyPlayerNames = getListaBabyJogadores()
+        if selectedBabyTarget and not babyPlayersMap[selectedBabyTarget.Name] then
+            selectedBabyTarget = nil
+        end
+        atualizarDropdownRedz(BabyTargetDropdown, babyPlayerNames)
+        notificar("Troll", "Lista de alvos do baby atualizada!", 2)
+    end
+})
+
+TrollTab:AddTextBox({
+    Name = "Nome do Baby",
+    Description = "Ex: BabyBoy ou BabyGirl",
+    PlaceholderText = "Ex: BabyBoy ou BabyGirl",
+    Callback = function(txt)
+        babyNameValue = tostring(txt or "BabyBoy")
+    end
+})
+
+TrollTab:AddButton({
+    "Enviar Baby pro Alvo",
+    function()
+        local ok, err = enviarBabyParaAlvo(selectedBabyTarget, babyNameValue)
+        notificar(ok and "Troll" or "Erro", ok and ("Baby enviado em " .. selectedBabyTarget.Name .. "!") or err, 3)
+    end
+})
+
+TrollTab:AddButton({
+    "Remover Baby",
+    function()
+        local ok, err = removerBabyDoAlvo()
+        notificar(ok and "Troll" or "Erro", ok and "Baby removido do alvo!" or err, 3)
+    end
+})
+
+TrollTab:AddDropdown({
+    Name = "Onde quer o Baby?",
+    Description = "Escolha entre Nas Costas ou Na Cara.",
+    Options = { "Nas Costas", "Na Cara" },
+    Default = "Nas Costas",
+    Callback = function(Option)
+        babyLocalEscolhido = tostring(Option)
+        notificar("Baby", "Local do baby definido para: " .. babyLocalEscolhido, 2)
+    end
+})
+
+TrollTab:AddSlider({
+    Name = "Velocidade do Baby",
+    Min = 1,
+    Max = 60,
+    Increase = 0.5,
+    Default = 6.5,
+    Callback = function(Value)
+        babyOscSpeed = tonumber(Value) or 6.5
+    end
+})
+
+TrollTab:AddButton({
+    "Colar Baby",
+    function()
+        local ativo, err = alternarColarBaby()
+        if err then
+            notificar("Erro", err, 3)
+            return
+        end
+        notificar(
+            "Baby",
+            ativo and ("Baby colado em " .. babyLocalEscolhido .. " (oscilando)!") or "Modo colado desativado!",
+            3
+        )
+    end
+})
+
+local MusicTab = Window:MakeTab({ "Música", "music" })
+
+local savedSongs = {
+    ["ANTARES"] = "79075022796596",
+    ["Quem tá passando é o trem"] = "137828639403630",
+    ["MONTAGEM AI"] = "135958179501280",
+    ["Ce Ta Nervosa"] = "81744758291664",
+    ["paris"] = "93483751210667",
+    ["Sópra"] = "106952008398119",
+    ["GRWM"] = "108306423679517",
+    ["EU APLICO O CHA"] = "86866545861125",
+    ["Pé Direito"] = "127870629973068",
+    ["LIGOU NA MADRUGA"] = "118906056296419",
+    ["VIRA MORTAL"] = "85464353244509",
+    ["Bafora No Plugg"] = "122367698779698",
+    ["TROPA DOS SEM AMOR X ONE WAY"] = "125784363463466",
+    ["MONTAGEM DE BANDIDO 2"] = "74967642581893",
+    ["TITANIC"] = "75498888713958",
+    ["MANDELÃO CLASSE A"] = "136514868732136",
+    ["Supremo"] = "123295964560127",
+    ["Multiplicou"] = "135750430892149",
+    ["Pantanal"] = "94880156546772",
+    ["Pai"] = "108808025565103",
+    ["AUTOMOTIVO PO_RR4 IZABELA"] = "124950663117359",
+}
+
+local songNames = {}
+for name in pairs(savedSongs) do table.insert(songNames, name) end
+
+local function getBoomboxEquipada()
+    local char = LP.Character
+    local boombox = char and char:FindFirstChild("Boombox")
+    return (boombox and boombox:IsA("Tool")) and boombox or nil
 end
-local function v109()
-	TABLE_TableIndirection["v321%0"] = TABLE_TableIndirection["v1%0"].Character;
-	TABLE_TableIndirection["v322%0"] = TABLE_TableIndirection["v321%0"] and TABLE_TableIndirection["v321%0"]:FindFirstChild("Boombox");
-	return (TABLE_TableIndirection["v322%0"] and TABLE_TableIndirection["v322%0"]:IsA("Tool") and TABLE_TableIndirection["v322%0"]) or nil;
+
+local function playMusic(soundId)
+    soundId = tostring(soundId)
+    if not tonumber(soundId) then return false, "ID inválido" end
+
+    local boombox = getBoomboxEquipada()
+    if not boombox then return false, "Equipe a Boombox na mão primeiro!" end
+
+    local sound = boombox:FindFirstChildWhichIsA("Sound", true)
+    if sound then
+        sound.SoundId = "rbxassetid://" .. soundId
+        sound.Looped = true
+        sound.Volume = 0.5
+        sound:Play()
+    end
+
+    local RE = ReplicatedStorage:FindFirstChild("RE")
+    local remote = RE and RE:FindFirstChild("PlayerToolEvent")
+    if remote then
+        pcall(function() remote:FireServer("ToolMusicText", soundId, nil, true) end)
+        return true, nil
+    end
+    return false, "Remote PlayerToolEvent não encontrado."
 end
-local function v110(v323)
-	v323 = tostring(v323);
-	if (not tonumber(v323) or (581 < 282) or (4012 <= 3358)) then
-		return false, "ID inválido";
-	end
-	TABLE_TableIndirection["v324%0"] = v109();
-	if (not TABLE_TableIndirection["v324%0"] or (4609 < 2495)) then
-		return false, "Equipe a Boombox na mão primeiro!";
-	end
-	TABLE_TableIndirection["v325%0"] = TABLE_TableIndirection["v324%0"]:FindFirstChildWhichIsA("Sound", true);
-	if ((1494 <= 3005) and TABLE_TableIndirection["v325%0"]) then
-		TABLE_TableIndirection["v325%0"].SoundId = "rbxassetid://" .. v323;
-		TABLE_TableIndirection["v325%0"].Looped = true;
-		TABLE_TableIndirection["v325%0"].Volume = 0.5;
-		TABLE_TableIndirection["v325%0"]:Play();
-	end
-	TABLE_TableIndirection["v326%0"] = TABLE_TableIndirection["v6%0"]:FindFirstChild("RE");
-	TABLE_TableIndirection["v327%0"] = TABLE_TableIndirection["v326%0"] and TABLE_TableIndirection["v326%0"]:FindFirstChild("PlayerToolEvent");
-	if TABLE_TableIndirection["v327%0"] then
-		pcall(function()
-			TABLE_TableIndirection["v327%0"]:FireServer("ToolMusicText", v323, nil, true);
-		end);
-		return true, nil;
-	end
-	return false, "Remote PlayerToolEvent não encontrado.";
-end
-TABLE_TableIndirection["v106%0"]:Dropdown({Title="Catálogo de Músicas",Desc="Escolha uma música para tocar.",Values=TABLE_TableIndirection["v108%0"],Callback=function(v328)
-	TABLE_TableIndirection["v329%0"] = TABLE_TableIndirection["v107%0"][v328];
-	if ((1152 == 1152) and TABLE_TableIndirection["v329%0"]) then
-		local v443, v444 = v110(TABLE_TableIndirection["v329%0"]);
-		TABLE_TableIndirection["v0%0"]:Notify({Title=((v443 and "Música") or "Erro"),Content=((v443 and ("Tocando " .. v328 .. " na Boombox!")) or v444),Icon=((v443 and "music") or "x"),Duration=3});
-	end
-end});
-TABLE_TableIndirection["v106%0"]:Section({Title="Controle"});
-TABLE_TableIndirection["v111%0"] = TABLE_TableIndirection["v106%0"]:Input({Title="ID Customizado",Value="",Placeholder="Ex: 1837879082"});
-TABLE_TableIndirection["v106%0"]:Button({Title="Tocar ID Customizado",Callback=function()
-	TABLE_TableIndirection["v330%0"] = TABLE_TableIndirection["v111%0"].Value;
-	if (TABLE_TableIndirection["v330%0"] and (TABLE_TableIndirection["v330%0"] ~= "")) then
-		local v445, v446 = v110(TABLE_TableIndirection["v330%0"]);
-		if not v445 then
-			TABLE_TableIndirection["v0%0"]:Notify({Title="Erro",Content=v446,Icon="x",Duration=4});
-		end
-	end
-end});
-TABLE_TableIndirection["v106%0"]:Button({Title="Pausar Música",Callback=function()
-	TABLE_TableIndirection["v331%0"] = v109();
-	if (TABLE_TableIndirection["v331%0"] or (3111 == 2134)) then
-		TABLE_TableIndirection["v447%0"] = TABLE_TableIndirection["v331%0"]:FindFirstChildWhichIsA("Sound", true);
-		if ((2355 == 2355) and (1896 <= 3422) and TABLE_TableIndirection["v447%0"]) then
-			TABLE_TableIndirection["v447%0"]:Stop();
-		end
-		TABLE_TableIndirection["v448%0"] = TABLE_TableIndirection["v6%0"]:FindFirstChild("RE");
-		TABLE_TableIndirection["v449%0"] = TABLE_TableIndirection["v448%0"] and TABLE_TableIndirection["v448%0"]:FindFirstChild("PlayerToolEvent");
-		if TABLE_TableIndirection["v449%0"] then
-			pcall(function()
-				TABLE_TableIndirection["v449%0"]:FireServer("ToolMusicText", "", nil, true);
-			end);
-		end
-	else
-		TABLE_TableIndirection["v0%0"]:Notify({Title="Erro",Content="Equipe a Boombox na mão!",Icon="x",Duration=4});
-	end
-end});
-TABLE_TableIndirection["v112%0"] = TABLE_TableIndirection["v80%0"]:Tab({Title="Segurança",Icon="shield"});
-TABLE_TableIndirection["v112%0"]:Toggle({Title="Anti Sit (Bloqueio Total)",Desc="Bloqueia o estado de sentar e desativa colisão de assentos.",Value=false,Callback=function(v332)
-	TABLE_TableIndirection["v47%0"] = v332;
-	if (v332 or (990 > 1620)) then
-		v58(TABLE_TableIndirection["v1%0"].Character);
-		v62(TABLE_TableIndirection["v1%0"].Character);
-	else
-		v55();
-		v54();
-		v53();
-	end
-	TABLE_TableIndirection["v0%0"]:Notify({Title="Segurança",Content=((v332 and "Anti Sit BLINDADO ATIVADO.") or "Anti Sit DESATIVADO."),Icon=((v332 and "shield") or "shield-off"),Duration=3});
-end});
-TABLE_TableIndirection["v113%0"] = TABLE_TableIndirection["v80%0"]:Tab({Title="Config",Icon="settings"});
-TABLE_TableIndirection["v114%0"] = nil;
-TABLE_TableIndirection["v115%0"] = 0;
-local function v116()
-	TABLE_TableIndirection["v333%0"] = {};
-	pcall(function()
-		if (TABLE_TableIndirection["v1%0"]:FindFirstChild("PlayerGui") or (877 > 4695) or (588 <= 432)) then
-			table.insert(TABLE_TableIndirection["v333%0"], TABLE_TableIndirection["v1%0"].PlayerGui);
-		end
-	end);
-	pcall(function()
-		table.insert(TABLE_TableIndirection["v333%0"], TABLE_TableIndirection["v8%0"]);
-	end);
-	pcall(function()
-		if ((2691 >= 1851) and (type(gethui) == "function")) then
-			TABLE_TableIndirection["v496%0"] = gethui();
-			if ((4797 >= 3895) and (TABLE_TableIndirection["v496%0"] or (2985 >= 4856))) then
-				table.insert(TABLE_TableIndirection["v333%0"], TABLE_TableIndirection["v496%0"]);
-			end
-		end
-	end);
-	return TABLE_TableIndirection["v333%0"];
-end
-local function v117(v334)
-	if ((3577 == 3577) and (4276 >= 1195) and (not v334 or not v334:IsA("ScreenGui"))) then
-		return false;
-	end
-	TABLE_TableIndirection["v335%0"] = false;
-	TABLE_TableIndirection["v336%0"] = false;
-	for v405, v406 in ipairs(v334:GetDescendants()) do
-		if (v406:IsA("TextLabel") or v406:IsA("TextButton")) then
-			if ((3794 > 3693) and (3232 <= 4690) and (v406.Text == "Brocasitx Hub")) then
-				TABLE_TableIndirection["v335%0"] = true;
-			elseif ((v406.Text == "Brocasitx Admin") or (1275 == 4100)) then
-				TABLE_TableIndirection["v336%0"] = true;
-			end
-		end
-	end
-	return TABLE_TableIndirection["v335%0"] and not TABLE_TableIndirection["v336%0"];
-end
-local function v118(v337, v338, v339, v340, v341)
-	for v407, v408 in ipairs(v116()) do
-		for v450, v451 in ipairs(v408:GetChildren()) do
-			if (v117(v451) or (1591 >= 3580)) then
-				for v532, v533 in ipairs(v451:GetDescendants()) do
-					if ((983 <= 1808) and (v533:FindFirstAncestor("BrocasitxHeadTag") or (896 >= 3146))) then
-						continue;
-					end
-					if (v533:IsA("Frame") or v533:IsA("ScrollingFrame") or v533:IsA("CanvasGroup")) then
-						TABLE_TableIndirection["v546%0"] = v533.AbsoluteSize;
-						if (((TABLE_TableIndirection["v546%0"].X >= 300) and (TABLE_TableIndirection["v546%0"].Y >= 220)) or (2150 <= 1197)) then
-							v533.BackgroundColor3 = v337;
-							if ((3769 >= 1173) and (v533.BackgroundTransparency > 0.75)) then
-								v533.BackgroundTransparency = 0.12;
-							end
-						elseif ((1485 == 1485) and (TABLE_TableIndirection["v546%0"].X >= 40) and (TABLE_TableIndirection["v546%0"].Y >= 18)) then
-							if ((v533.BackgroundTransparency < 0.98) or (3315 <= 2782)) then
-								v533.BackgroundColor3 = v338;
-							end
-						end
-					elseif ((3061 >= 2958) and v533:IsA("TextButton")) then
-						if ((v533.BackgroundTransparency < 0.98) or (876 >= 2964)) then
-							v533.BackgroundColor3 = v341;
-						end
-						v533.TextColor3 = v339;
-					elseif (((3187 >= 644) and v533:IsA("TextLabel")) or (2232 > 2497)) then
-						v533.TextColor3 = v339;
-					elseif (v533:IsA("TextBox") or (2110 <= 332)) then
-						if ((644 <= 704) and (v533.BackgroundTransparency < 0.98)) then
-							v533.BackgroundColor3 = v338;
-						end
-						v533.TextColor3 = v339;
-					elseif ((3686 > 3172) and (958 > 947) and v533:IsA("UIStroke")) then
-						v533.Color = v340;
-					end
-				end
-			end
-		end
-	end
-end
-local function v119(v342)
-	TABLE_TableIndirection["v114%0"] = v342;
-	TABLE_TableIndirection["v115%0"] = TABLE_TableIndirection["v115%0"] + 1;
-	TABLE_TableIndirection["v343%0"] = TABLE_TableIndirection["v115%0"];
-	local function v344()
-		if (v342 == "Preto") then
-			pcall(function()
-				if ((type(TABLE_TableIndirection["v80%0"].SetTheme) == "function") or (4474 < 820)) then
-					TABLE_TableIndirection["v80%0"]:SetTheme("Dark");
-				end
-			end);
-			v118(Color3.fromRGB(10, 10, 10), Color3.fromRGB(24, 24, 24), Color3.fromRGB(255, 255, 255), Color3.fromRGB(65, 65, 65), Color3.fromRGB(36, 36, 36));
-		elseif (v342 == "Branco") then
-			pcall(function()
-				if (type(TABLE_TableIndirection["v80%0"].SetTheme) == "function") then
-					TABLE_TableIndirection["v80%0"]:SetTheme("Light");
-				end
-			end);
-			v118(Color3.fromRGB(244, 246, 250), Color3.fromRGB(255, 255, 255), Color3.fromRGB(15, 15, 20), Color3.fromRGB(175, 185, 200), Color3.fromRGB(220, 226, 236));
-		elseif (v342 == "Verde") then
-			pcall(function()
-				if ((4279 >= 2882) and (4492 >= 2654) and (type(TABLE_TableIndirection["v80%0"].SetTheme) == "function")) then
-					TABLE_TableIndirection["v80%0"]:SetTheme("Dark");
-				end
-			end);
-			v118(Color3.fromRGB(8, 36, 18), Color3.fromRGB(16, 62, 32), Color3.fromRGB(225, 255, 235), Color3.fromRGB(45, 205, 110), Color3.fromRGB(24, 95, 48));
-		end
-	end
-	v344();
-	task.spawn(function()
-		for v452 = 1, 6 do
-			task.wait(0.1);
-			if ((TABLE_TableIndirection["v115%0"] ~= TABLE_TableIndirection["v343%0"]) or (2029 >= 3521)) then
-				break;
-			end
-			v344();
-		end
-	end);
-end
-TABLE_TableIndirection["v113%0"]:Dropdown({Title="Cor do Hub",Desc="Escolha entre Preto, Branco ou Verde.",Values={"Preto","Branco","Verde"},Callback=function(v345)
-	v119(v345);
-	TABLE_TableIndirection["v0%0"]:Notify({Title="Config",Content=("Cor do hub alterada para " .. tostring(v345) .. "!"),Icon="palette",Duration=3});
-end});
-TABLE_TableIndirection["v113%0"]:Button({Title="Pausar",Desc="Pausa ou retoma a música GRWM (Volume 20 • Loop 1:30).",Callback=function()
-	if ((3442 >= 1503) and not TABLE_TableIndirection["v28%0"]) then
-		v37();
-		TABLE_TableIndirection["v0%0"]:Notify({Title="Config",Content="Música GRWM pausada. Clique em Pausar de novo para retomar.",Icon="pause",Duration=3});
-	else
-		v36(false);
-		TABLE_TableIndirection["v0%0"]:Notify({Title="Config",Content="Música GRWM retomada no volume 20!",Icon="play",Duration=3});
-	end
-end});
-TABLE_TableIndirection["v80%0"]:SelectTab(1);
-if (v18() or (2037 >= 4642)) then
-	TABLE_TableIndirection["v0%0"]:Notify({Title="Admin",Content="permissão admin concedida",Icon="shield-check",Duration=5});
-	TABLE_TableIndirection["v13%0"] = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))();
-	TABLE_TableIndirection["v409%0"] = TABLE_TableIndirection["v13%0"]:CreateWindow({Title="Brocasitx Admin",Icon="skull",Folder="BrocasitxAdminZero",Size=UDim2.fromOffset(480, 360),Transparent=true,Theme="Dark"});
-	TABLE_TableIndirection["v12%0"] = TABLE_TableIndirection["v409%0"];
-	TABLE_TableIndirection["v410%0"] = TABLE_TableIndirection["v409%0"]:Tab({Title="Admin",Icon="shield-alert"});
-	local v411, v412 = {}, {};
-	TABLE_TableIndirection["v413%0"] = nil;
-	local function v414()
-		local v453, v454 = {}, {};
-		for v497, v498 in ipairs(TABLE_TableIndirection["v3%0"]:GetPlayers()) do
-			if ((v498 ~= TABLE_TableIndirection["v1%0"]) or (3170 <= 1464)) then
-				v453[v498.Name] = v498;
-				table.insert(v454, v498.Name);
-			end
-		end
-		table.sort(v454);
-		return v453, v454;
-	end
-	v411, v412 = v414();
-	TABLE_TableIndirection["v415%0"] = TABLE_TableIndirection["v410%0"]:Dropdown({Title="Escolher Alvo",Values=v412,Callback=function(v455)
-		TABLE_TableIndirection["v413%0"] = v411[v455];
-	end});
-	TABLE_TableIndirection["v410%0"]:Button({Title="Atualizar Lista",Callback=function()
-		v411, v412 = v414();
-		if (TABLE_TableIndirection["v413%0"] and not v411[TABLE_TableIndirection["v413%0"].Name]) then
-			TABLE_TableIndirection["v413%0"] = nil;
-		end
-		pcall(function()
-			if ((1720 < 4458) and ((TABLE_TableIndirection["v415%0"] and (type(TABLE_TableIndirection["v415%0"].Refresh) == "function")) or (4797 == 4388))) then
-				TABLE_TableIndirection["v415%0"]:Refresh(v412, true);
-			end
-		end);
-		TABLE_TableIndirection["v0%0"]:Notify({Title="Admin",Content="Lista de jogadores atualizada!",Icon="refresh-cw",Duration=2});
-	end});
-	TABLE_TableIndirection["v410%0"]:Button({Title="Mandar Aviso",Callback=function()
-		if ((551 <= 681) and not TABLE_TableIndirection["v413%0"]) then
-			TABLE_TableIndirection["v0%0"]:Notify({Title="Admin",Content="Escolha um alvo primeiro!",Icon="x",Duration=3});
-			return;
-		end
-		v46(TABLE_TableIndirection["v413%0"], "aviso");
-	end});
-	TABLE_TableIndirection["v410%0"]:Button({Title="Trazer (Bring)",Callback=function()
-		if ((3277 > 407) and not TABLE_TableIndirection["v413%0"]) then
-			TABLE_TableIndirection["v0%0"]:Notify({Title="Admin",Content="Escolha um alvo primeiro!",Icon="x",Duration=3});
-			return;
-		end
-		TABLE_TableIndirection["v457%0"] = TABLE_TableIndirection["v1%0"].Character;
-		TABLE_TableIndirection["v458%0"] = TABLE_TableIndirection["v457%0"] and TABLE_TableIndirection["v457%0"]:FindFirstChild("HumanoidRootPart");
-		if (((4695 >= 1415) and TABLE_TableIndirection["v458%0"]) or (436 > 3021)) then
-			TABLE_TableIndirection["v510%0"] = TABLE_TableIndirection["v458%0"].CFrame * CFrame.new(0, 0, -4);
-			v46(TABLE_TableIndirection["v413%0"], "bring", {x=TABLE_TableIndirection["v510%0"].X,y=TABLE_TableIndirection["v510%0"].Y,z=TABLE_TableIndirection["v510%0"].Z});
-		end
-	end});
-	TABLE_TableIndirection["v410%0"]:Button({Title="Prender (Jail)",Callback=function()
-		if (not TABLE_TableIndirection["v413%0"] or (3212 <= 944)) then
-			TABLE_TableIndirection["v0%0"]:Notify({Title="Admin",Content="Escolha um alvo primeiro!",Icon="x",Duration=3});
-			return;
-		end
-		TABLE_TableIndirection["v459%0"] = TABLE_TableIndirection["v413%0"].Character;
-		TABLE_TableIndirection["v460%0"] = TABLE_TableIndirection["v459%0"] and TABLE_TableIndirection["v459%0"]:FindFirstChild("HumanoidRootPart");
-		TABLE_TableIndirection["v461%0"] = {};
-		if ((713 <= 847) and (TABLE_TableIndirection["v460%0"] or (3096 <= 1798))) then
-			TABLE_TableIndirection["v461%0"].jx = TABLE_TableIndirection["v460%0"].Position.X;
-			TABLE_TableIndirection["v461%0"].jy = TABLE_TableIndirection["v460%0"].Position.Y;
-			TABLE_TableIndirection["v461%0"].jz = TABLE_TableIndirection["v460%0"].Position.Z;
-		end
-		v46(TABLE_TableIndirection["v413%0"], "jail", TABLE_TableIndirection["v461%0"]);
-	end});
-	TABLE_TableIndirection["v410%0"]:Button({Title="Soltar (Unjail)",Callback=function()
-		if ((2154 <= 4031) and not TABLE_TableIndirection["v413%0"]) then
-			TABLE_TableIndirection["v0%0"]:Notify({Title="Admin",Content="Escolha um alvo primeiro!",Icon="x",Duration=3});
-			return;
-		end
-		v46(TABLE_TableIndirection["v413%0"], "unjail");
-	end});
-	TABLE_TableIndirection["v410%0"]:Button({Title="Matar (Kill)",Callback=function()
-		if not TABLE_TableIndirection["v413%0"] then
-			TABLE_TableIndirection["v0%0"]:Notify({Title="Admin",Content="Escolha um alvo primeiro!",Icon="x",Duration=3});
-			return;
-		end
-		v46(TABLE_TableIndirection["v413%0"], "kill");
-	end});
+
+MusicTab:AddDropdown({
+    Name = "Catálogo de Músicas",
+    Description = "Escolha uma música para tocar.",
+    Options = songNames,
+    Callback = function(Option)
+        local id = savedSongs[Option]
+        if id then
+            local ok, err = playMusic(id)
+            notificar(ok and "Música" or "Erro", ok and ("Tocando " .. Option .. " na Boombox!") or err, 3)
+        end
+    end
+})
+
+MusicTab:AddSection({ "Controle" })
+local customAudioId = ""
+
+MusicTab:AddTextBox({
+    Name = "ID Customizado",
+    Description = "Ex: 1837879082",
+    PlaceholderText = "Ex: 1837879082",
+    Callback = function(txt)
+        customAudioId = tostring(txt or "")
+    end
+})
+
+MusicTab:AddButton({
+    "Tocar ID Customizado",
+    function()
+        if customAudioId and customAudioId ~= "" then
+            local ok, err = playMusic(customAudioId)
+            if not ok then notificar("Erro", err, 4) end
+        end
+    end
+})
+
+MusicTab:AddButton({
+    "Pausar Música",
+    function()
+        local boombox = getBoomboxEquipada()
+        if boombox then
+            local sound = boombox:FindFirstChildWhichIsA("Sound", true)
+            if sound then sound:Stop() end
+            local RE = ReplicatedStorage:FindFirstChild("RE")
+            local remote = RE and RE:FindFirstChild("PlayerToolEvent")
+            if remote then pcall(function() remote:FireServer("ToolMusicText", "", nil, true) end) end
+        else
+            notificar("Erro", "Equipe a Boombox na mão!", 4)
+        end
+    end
+})
+
+local SecurityTab = Window:MakeTab({ "Segurança", "shield" })
+SecurityTab:AddToggle({
+    Name = "Anti Sit (Bloqueio Total)",
+    Description = "Bloqueia o estado de sentar e desativa colisão de assentos.",
+    Default = false,
+    Callback = function(Value)
+        antiSitEnabled = Value
+        if Value then
+            ligarAntiSitEmPersonagem(LP.Character)
+            desativarCollideDeAssentosProximos(LP.Character)
+        else
+            desconectarPersonagemAntiSit()
+            restaurarEstadoSeatedHumanoid()
+            restaurarAssentosAlterados()
+        end
+        notificar("Segurança", Value and "Anti Sit BLINDADO ATIVADO." or "Anti Sit DESATIVADO.", 3)
+    end
+})
+
+local ConfigTab = Window:MakeTab({ "Config", "settings" })
+
+ConfigTab:AddDropdown({
+    Name = "Cor do Hub",
+    Description = "Tema gerenciado pelo Redz UI.",
+    Options = { "Preto", "Branco", "Verde" },
+    Default = "Preto",
+    Callback = function(Option)
+        notificar("Config", "Opção selecionada: " .. tostring(Option), 3)
+    end
+})
+
+ConfigTab:AddButton({
+    "Pausar",
+    function()
+        if not musicaPausadaManualmente then
+            pausarGRWM()
+            notificar("Config", "Música GRWM pausada. Clique em Pausar de novo para retomar.", 3)
+        else
+            iniciarOuReiniciarGRWM(false)
+            notificar("Config", "Música GRWM retomada no volume 20!", 3)
+        end
+    end
+})
+
+Window:SelectTab(CreditsTab)
+
+-- =========================================================
+-- PAINEL ADMIN NORMAL NO WINDUI
+-- =========================================================
+if isLocalAdminOrOwner() then
+    AdminUIRef = carregarLibHttp({ WIND_UI_URL })
+    if AdminUIRef then
+        pcall(function()
+            AdminUIRef:Notify({
+                Title = "Admin",
+                Content = "permissão admin concedida",
+                Icon = "shield-check",
+                Duration = 5
+            })
+        end)
+
+        local AdminWin = AdminUIRef:CreateWindow({
+            Title = "Brocasitx Admin",
+            Icon = "skull",
+            Folder = "BrocasitxAdminZero",
+            Size = UDim2.fromOffset(480, 360),
+            Transparent = true,
+            Theme = "Dark",
+        })
+        AdminWinRef = AdminWin
+
+        local AdminMainTab = AdminWin:Tab({ Title = "Admin", Icon = "shield-alert" })
+        local playersInMap, playerMapNames = {}, {}
+        local selectedTarget = nil
+
+        local function getListaJogadores()
+            local mapa, nomes = {}, {}
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p ~= LP then
+                    mapa[p.Name] = p
+                    table.insert(nomes, p.Name)
+                end
+            end
+            table.sort(nomes)
+            return mapa, nomes
+        end
+
+        playersInMap, playerMapNames = getListaJogadores()
+
+        local TargetDropdown = AdminMainTab:Dropdown({
+            Title = "Escolher Alvo",
+            Values = playerMapNames,
+            Callback = function(opt)
+                selectedTarget = playersInMap[opt]
+            end,
+        })
+
+        AdminMainTab:Button({
+            Title = "Atualizar Lista",
+            Callback = function()
+                playersInMap, playerMapNames = getListaJogadores()
+                if selectedTarget and not playersInMap[selectedTarget.Name] then
+                    selectedTarget = nil
+                end
+                pcall(function()
+                    if TargetDropdown and type(TargetDropdown.Refresh) == "function" then
+                        TargetDropdown:Refresh(playerMapNames, true)
+                    end
+                end)
+                AdminUIRef:Notify({
+                    Title = "Admin",
+                    Content = "Lista de jogadores atualizada!",
+                    Icon = "refresh-cw",
+                    Duration = 2
+                })
+            end,
+        })
+
+        AdminMainTab:Button({
+            Title = "Mandar Aviso",
+            Callback = function()
+                if not selectedTarget then
+                    AdminUIRef:Notify({ Title = "Admin", Content = "Escolha um alvo primeiro!", Icon = "x", Duration = 3 })
+                    return
+                end
+                mandarParaJogador(selectedTarget, "aviso")
+            end,
+        })
+
+        AdminMainTab:Button({
+            Title = "Trazer (Bring)",
+            Callback = function()
+                if not selectedTarget then
+                    AdminUIRef:Notify({ Title = "Admin", Content = "Escolha um alvo primeiro!", Icon = "x", Duration = 3 })
+                    return
+                end
+                local myChar = LP.Character
+                local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+                if myHrp then
+                    local pos = myHrp.CFrame * CFrame.new(0, 0, -4)
+                    mandarParaJogador(selectedTarget, "bring", {
+                        x = pos.X,
+                        y = pos.Y,
+                        z = pos.Z
+                    })
+                end
+            end,
+        })
+
+        AdminMainTab:Button({
+            Title = "Prender (Jail)",
+            Callback = function()
+                if not selectedTarget then
+                    AdminUIRef:Notify({ Title = "Admin", Content = "Escolha um alvo primeiro!", Icon = "x", Duration = 3 })
+                    return
+                end
+                local tChar = selectedTarget.Character
+                local tHrp = tChar and tChar:FindFirstChild("HumanoidRootPart")
+                local extra = {}
+                if tHrp then
+                    extra.jx = tHrp.Position.X
+                    extra.jy = tHrp.Position.Y
+                    extra.jz = tHrp.Position.Z
+                end
+                mandarParaJogador(selectedTarget, "jail", extra)
+            end,
+        })
+
+        AdminMainTab:Button({
+            Title = "Soltar (Unjail)",
+            Callback = function()
+                if not selectedTarget then
+                    AdminUIRef:Notify({ Title = "Admin", Content = "Escolha um alvo primeiro!", Icon = "x", Duration = 3 })
+                    return
+                end
+                mandarParaJogador(selectedTarget, "unjail")
+            end,
+        })
+
+        AdminMainTab:Button({
+            Title = "Matar (Kill)",
+            Callback = function()
+                if not selectedTarget then
+                    AdminUIRef:Notify({ Title = "Admin", Content = "Escolha um alvo primeiro!", Icon = "x", Duration = 3 })
+                    return
+                end
+                mandarParaJogador(selectedTarget, "kill")
+            end,
+        })
+    end
 end
